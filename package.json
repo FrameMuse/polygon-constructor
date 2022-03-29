@@ -1,0 +1,15 @@
+{
+  "name": "polygon-constructor",
+  "version": "0.0.1-alpha",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "typescript": "^4.6.3"
+  }
+}
