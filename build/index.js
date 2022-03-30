@@ -1,8 +1,34 @@
 "use strict";
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 var boundary = document.body.querySelector("[data-pc-boundary]");
 var polygon = document.body.querySelector("[data-pc-polygon]");
 var site = document.body.querySelector("[data-pc-site]");
 var picker = document.body.querySelector("[data-pc-picker]");
+var siteRect = site.getBoundingClientRect();
 var shapes = new Map;
 var placements = new Map;
 var offsetX = 0;
@@ -49,7 +75,16 @@ function onDraggingEnd(event) {
     document.removeEventListener("pointerup", onDraggingEnd);
 }
 function onPointerDown(event) {
-    var clonedShape = this.cloneNode(true);
+    var draggableShape = cloneAsDraggableShape(this);
+    polygon.appendChild(draggableShape);
+    draggingElement = draggableShape;
+    var t = this.getBoundingClientRect();
+    offsetX = event.x - t.left;
+    offsetY = event.y - t.top;
+    onDraggingStart.call(draggableShape, event);
+}
+function cloneAsDraggableShape(shape) {
+    var clonedShape = shape.cloneNode(true);
     clonedShape.classList.add("polygon-constructor__shape--draggable");
     clonedShape.addEventListener("pointerdown", function (event) {
         var t = this.getBoundingClientRect();
@@ -57,12 +92,7 @@ function onPointerDown(event) {
         offsetY = event.y - t.top;
         onDraggingStart.call(this, event);
     });
-    polygon.appendChild(clonedShape);
-    draggingElement = clonedShape;
-    var t = this.getBoundingClientRect();
-    offsetX = event.x - t.left;
-    offsetY = event.y - t.top;
-    onDraggingStart.call(clonedShape, event);
+    return clonedShape;
 }
 function commitStore() {
     if (draggingElement == null)
@@ -76,7 +106,6 @@ function commitStore() {
     if (shape == null)
         return;
     placements.set(+id, {
-        shape: shape,
         x: draggingElement.offsetLeft - site.offsetLeft,
         y: draggingElement.offsetTop - site.offsetTop,
     });
@@ -107,6 +136,23 @@ function addShape(shape) {
     shapes.set(shape.id, shape);
     var shapeElement = createShapeElement(shape);
     picker.appendChild(shapeElement);
+}
+function getPlacements() {
+    return __spreadArray([], __read(placements.entries()), false);
+}
+function setPlacements(newPlacements) {
+    polygon.querySelectorAll(".polygon-constructor__shape--draggable").forEach(function (e) { return e.remove(); });
+    placements = new Map(newPlacements);
+    placements.forEach(function (place, key) {
+        var shape = shapes.get(key);
+        if (shape == null)
+            return;
+        var shapeElement = createShapeElement(shape);
+        var draggableShape = cloneAsDraggableShape(shapeElement);
+        draggableShape.style.top = site.offsetTop + place.y + "px";
+        draggableShape.style.left = site.offsetLeft + place.x + "px";
+        polygon.appendChild(draggableShape);
+    });
 }
 site.addEventListener("pointerenter", function () {
     dropAllowed = true;

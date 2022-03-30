@@ -3,6 +3,8 @@ const polygon = document.body.querySelector("[data-pc-polygon]") as HTMLDivEleme
 const site = document.body.querySelector("[data-pc-site]") as HTMLDivElement
 const picker = document.body.querySelector("[data-pc-picker]") as HTMLDivElement
 
+const siteRect = site.getBoundingClientRect()
+
 interface Shape {
   id: number
   title: string
@@ -10,13 +12,12 @@ interface Shape {
 }
 
 interface Placement {
-  shape: Shape
   x: number
   y: number
 }
 
 const shapes: Map<Shape["id"], Shape> = new Map
-const placements: Map<Shape["id"], Placement> = new Map
+let placements: Map<Shape["id"], Placement> = new Map
 
 let offsetX = 0
 let offsetY = 0
@@ -75,7 +76,22 @@ function onDraggingEnd(event: PointerEvent) {
 }
 
 function onPointerDown(this: HTMLDivElement, event: PointerEvent) {
-  const clonedShape = this.cloneNode(true) as HTMLDivElement
+  const draggableShape = cloneAsDraggableShape(this)
+
+  polygon.appendChild(draggableShape)
+  draggingElement = draggableShape
+
+
+  const t = this.getBoundingClientRect()
+
+  offsetX = event.x - t.left
+  offsetY = event.y - t.top
+
+  onDraggingStart.call(draggableShape, event)
+}
+
+function cloneAsDraggableShape(shape: HTMLDivElement) {
+  const clonedShape = shape.cloneNode(true) as HTMLDivElement
 
   clonedShape.classList.add("polygon-constructor__shape--draggable")
   clonedShape.addEventListener("pointerdown", function (this, event) {
@@ -87,16 +103,7 @@ function onPointerDown(this: HTMLDivElement, event: PointerEvent) {
     onDraggingStart.call(this, event)
   })
 
-  polygon.appendChild(clonedShape)
-  draggingElement = clonedShape
-
-
-  const t = this.getBoundingClientRect()
-
-  offsetX = event.x - t.left
-  offsetY = event.y - t.top
-
-  onDraggingStart.call(clonedShape, event)
+  return clonedShape
 }
 
 function commitStore() {
@@ -110,7 +117,6 @@ function commitStore() {
   if (shape == null) return
 
   placements.set(+id, {
-    shape,
     x: draggingElement.offsetLeft - site.offsetLeft,
     y: draggingElement.offsetTop - site.offsetTop,
   })
@@ -149,6 +155,27 @@ function addShape(shape: Shape) {
 
   const shapeElement = createShapeElement(shape)
   picker.appendChild(shapeElement)
+}
+
+function getPlacements() {
+  return [...placements.entries()]
+}
+
+function setPlacements(newPlacements: [Shape["id"], Placement][]) {
+  polygon.querySelectorAll(".polygon-constructor__shape--draggable").forEach(e => e.remove())
+  placements = new Map(newPlacements)
+  placements.forEach((place, key) => {
+    const shape = shapes.get(key)
+    if (shape == null) return
+
+    const shapeElement = createShapeElement(shape)
+    const draggableShape = cloneAsDraggableShape(shapeElement)
+
+    draggableShape.style.top = site.offsetTop + place.y + "px"
+    draggableShape.style.left = site.offsetLeft + place.x + "px"
+
+    polygon.appendChild(draggableShape)
+  })
 }
 
 site.addEventListener("pointerenter", () => {
