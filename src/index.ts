@@ -3,18 +3,20 @@ const polygon = document.body.querySelector("[data-pc-polygon]") as HTMLDivEleme
 const site = document.body.querySelector("[data-pc-site]") as HTMLDivElement
 const picker = document.body.querySelector("[data-pc-picker]") as HTMLDivElement
 
-const shapes: Record<string, { title: string, type: string, elements: Set<HTMLElement> }> = {
-  1: {
-    title: "chair",
-    type: "circle",
-    elements: new Set
-  },
-  2: {
-    title: "table",
-    type: "rectangle",
-    elements: new Set
-  }
+interface Shape {
+  id: number
+  title: string
+  type: string
 }
+
+interface Placement {
+  shape: Shape
+  x: number
+  y: number
+}
+
+const shapes: Map<Shape["id"], Shape> = new Map
+const placements: Map<Shape["id"], Placement> = new Map
 
 let offsetX = 0
 let offsetY = 0
@@ -22,9 +24,11 @@ let dropAllowed = false
 let dragging = false
 let draggingElement: HTMLDivElement | null = null
 boundary.addEventListener("pointermove", event => {
-  if (!dragging) return
   event.preventDefault()
 
+  if (event.pressure < 0.5) return
+
+  if (!dragging) return
   commitMove(event.x, event.y)
 })
 
@@ -43,15 +47,12 @@ function commitMove(pageX: number, pageY: number) {
 function onDraggingStart(this: HTMLDivElement, event: PointerEvent) {
   event.preventDefault()
 
-  offsetX = event.offsetX
-  offsetY = event.offsetY
-
   dragging = true
   draggingElement = this
 
   commitMove(event.x, event.y)
 
-  this.style.pointerEvents = "none"
+  this.classList.add("polygon-constructor__shape--dragging")
   document.addEventListener("pointerup", onDraggingEnd)
 }
 
@@ -61,14 +62,14 @@ function onDraggingEnd(event: PointerEvent) {
 
   commitStore()
 
-  draggingElement.style.pointerEvents = ""
+  draggingElement.classList.remove("polygon-constructor__shape--dragging")
+
   if (!dropAllowed) {
     draggingElement.remove()
   }
 
   dragging = false
   draggingElement = null
-
 
   document.removeEventListener("pointerup", onDraggingEnd)
 }
@@ -77,10 +78,23 @@ function onPointerDown(this: HTMLDivElement, event: PointerEvent) {
   const clonedShape = this.cloneNode(true) as HTMLDivElement
 
   clonedShape.classList.add("polygon-constructor__shape--draggable")
-  clonedShape.addEventListener("pointerdown", onDraggingStart)
+  clonedShape.addEventListener("pointerdown", function (this, event) {
+    const t = this.getBoundingClientRect()
+
+    offsetX = event.x - t.left
+    offsetY = event.y - t.top
+
+    onDraggingStart.call(this, event)
+  })
 
   polygon.appendChild(clonedShape)
   draggingElement = clonedShape
+
+
+  const t = this.getBoundingClientRect()
+
+  offsetX = event.x - t.left
+  offsetY = event.y - t.top
 
   onDraggingStart.call(clonedShape, event)
 }
@@ -88,60 +102,64 @@ function onPointerDown(this: HTMLDivElement, event: PointerEvent) {
 function commitStore() {
   if (draggingElement == null) return
 
-  const id = draggingElement.id
-  if (dropAllowed) {
-    if (!shapes[id].elements.has(draggingElement)) {
-      shapes[id].elements.add(draggingElement)
-    }
-  } else {
-    shapes[id].elements.delete(draggingElement)
-  }
+  const id = draggingElement.dataset.pcId
+  if (id == null) return
+  if (isNaN(+id)) return
 
-  // render result
-  const rss = document.getElementById("r" + id) as HTMLDivElement
-  rss.textContent = shapes[id].title + ": " + shapes[id].elements.size
+  const shape = shapes.get(+id)
+  if (shape == null) return
+
+  placements.set(+id, {
+    shape,
+    x: draggingElement.offsetLeft - site.offsetLeft,
+    y: draggingElement.offsetTop - site.offsetTop,
+  })
+
+  // const id = draggingElement.id
+  // if (dropAllowed) {
+  //   if (!shapes[id].elements.has(draggingElement)) {
+  //     shapes[id].elements.add(draggingElement)
+  //   }
+  // } else {
+  //   shapes[id].elements.delete(draggingElement)
+  // }
+
+  // // render result
+  // const rss = document.getElementById("r" + id) as HTMLDivElement
+  // rss.textContent = shapes[id].title + ": " + shapes[id].elements.size
 }
 
-for (const id in shapes) {
-  if (Object.prototype.hasOwnProperty.call(shapes, id)) {
-    const shape = shapes[id]
-    const shapeElement = document.createElement("div")
+function createShapeElement(shape: Shape) {
+  const shapeElement = document.createElement("div")
 
-    shapeElement.id = id
-    shapeElement.innerText = shape.title
-    shapeElement.classList.add("polygon-constructor__shape")
-    shapeElement.classList.add("polygon-constructor__shape" + "--" + shape.type)
-    shapeElement.addEventListener("pointerdown", onPointerDown)
-    shapeElement.draggable = true
+  shapeElement.dataset.pcId = String(shape.id)
+  shapeElement.innerText = shape.title
+  shapeElement.classList.add("polygon-constructor__shape", "polygon-constructor__shape" + "--" + shape.type)
+  shapeElement.addEventListener("pointerdown", onPointerDown)
 
-    picker.appendChild(shapeElement)
-    // create result
-    const result = document.getElementById("result") as HTMLDivElement
-    const rss = document.createElement("div")
-    rss.id = "r" + id
-    rss.textContent = shape.title + ": 0"
-    result.appendChild(rss)
+  return shapeElement
+}
+
+function addShape(shape: Shape) {
+  if (shapes.has(shape.id)) {
+    throw new Error("This id is already in use")
   }
+
+  shapes.set(shape.id, shape)
+
+  const shapeElement = createShapeElement(shape)
+  picker.appendChild(shapeElement)
 }
 
 site.addEventListener("pointerenter", () => {
   dropAllowed = true
-
-  console.log("dropAllowed")
 })
 
 site.addEventListener("pointerout", () => {
   dropAllowed = false
-
-  console.log("not dropAllowed")
 })
 
-site.addEventListener("dragover", event => {
-  event.preventDefault()
-  console.log("dropAllowed")
-})
-
-site.addEventListener("drop", event => {
-  event.preventDefault()
-  console.log("dropAllowed")
-})
+addShape({ title: "wall", type: "hr", id: 0 })
+addShape({ title: "wall", type: "vr", id: 1 })
+addShape({ title: "chair", type: "circle", id: 2 })
+addShape({ title: "table", type: "rectangle", id: 3 })

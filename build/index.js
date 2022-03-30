@@ -4,15 +4,18 @@ var polygon = document.body.querySelector("[data-pc-polygon]");
 var site = document.body.querySelector("[data-pc-site]");
 var picker = document.body.querySelector("[data-pc-picker]");
 var shapes = new Map;
+var placements = new Map;
 var offsetX = 0;
 var offsetY = 0;
 var dropAllowed = false;
 var dragging = false;
 var draggingElement = null;
 boundary.addEventListener("pointermove", function (event) {
+    event.preventDefault();
+    if (event.pressure < 0.5)
+        return;
     if (!dragging)
         return;
-    event.preventDefault();
     commitMove(event.x, event.y);
 });
 function commitMove(pageX, pageY) {
@@ -26,12 +29,10 @@ function commitMove(pageX, pageY) {
 }
 function onDraggingStart(event) {
     event.preventDefault();
-    offsetX = event.offsetX;
-    offsetY = event.offsetY;
     dragging = true;
     draggingElement = this;
     commitMove(event.x, event.y);
-    this.style.pointerEvents = "none";
+    this.classList.add("polygon-constructor__shape--dragging");
     document.addEventListener("pointerup", onDraggingEnd);
 }
 function onDraggingEnd(event) {
@@ -39,7 +40,7 @@ function onDraggingEnd(event) {
         return;
     event.preventDefault();
     commitStore();
-    draggingElement.style.pointerEvents = "";
+    draggingElement.classList.remove("polygon-constructor__shape--dragging");
     if (!dropAllowed) {
         draggingElement.remove();
     }
@@ -50,14 +51,35 @@ function onDraggingEnd(event) {
 function onPointerDown(event) {
     var clonedShape = this.cloneNode(true);
     clonedShape.classList.add("polygon-constructor__shape--draggable");
-    clonedShape.addEventListener("pointerdown", onDraggingStart);
+    clonedShape.addEventListener("pointerdown", function (event) {
+        var t = this.getBoundingClientRect();
+        offsetX = event.x - t.left;
+        offsetY = event.y - t.top;
+        onDraggingStart.call(this, event);
+    });
     polygon.appendChild(clonedShape);
     draggingElement = clonedShape;
+    var t = this.getBoundingClientRect();
+    offsetX = event.x - t.left;
+    offsetY = event.y - t.top;
     onDraggingStart.call(clonedShape, event);
 }
 function commitStore() {
     if (draggingElement == null)
         return;
+    var id = draggingElement.dataset.pcId;
+    if (id == null)
+        return;
+    if (isNaN(+id))
+        return;
+    var shape = shapes.get(+id);
+    if (shape == null)
+        return;
+    placements.set(+id, {
+        shape: shape,
+        x: draggingElement.offsetLeft - site.offsetLeft,
+        y: draggingElement.offsetTop - site.offsetTop,
+    });
     // const id = draggingElement.id
     // if (dropAllowed) {
     //   if (!shapes[id].elements.has(draggingElement)) {
@@ -70,40 +92,29 @@ function commitStore() {
     // const rss = document.getElementById("r" + id) as HTMLDivElement
     // rss.textContent = shapes[id].title + ": " + shapes[id].elements.size
 }
-for (var id in shapes.keys()) {
-    if (Object.prototype.hasOwnProperty.call(shapes, id)) {
-        var shape = shapes.get(+id);
-        var shapeElement = document.createElement("div");
-        if (shape == null)
-            continue;
-        shapeElement.id = id;
-        shapeElement.innerText = shape.title;
-        shapeElement.classList.add("polygon-constructor__shape");
-        shapeElement.classList.add("polygon-constructor__shape" + "--" + shape.type);
-        shapeElement.addEventListener("pointerdown", onPointerDown);
-        shapeElement.draggable = true;
-        picker.appendChild(shapeElement);
-        // create result
-        var result = document.getElementById("result");
-        var rss = document.createElement("div");
-        rss.id = "r" + id;
-        rss.textContent = shape.title + ": 0";
-        result.appendChild(rss);
+function createShapeElement(shape) {
+    var shapeElement = document.createElement("div");
+    shapeElement.dataset.pcId = String(shape.id);
+    shapeElement.innerText = shape.title;
+    shapeElement.classList.add("polygon-constructor__shape", "polygon-constructor__shape" + "--" + shape.type);
+    shapeElement.addEventListener("pointerdown", onPointerDown);
+    return shapeElement;
+}
+function addShape(shape) {
+    if (shapes.has(shape.id)) {
+        throw new Error("This id is already in use");
     }
+    shapes.set(shape.id, shape);
+    var shapeElement = createShapeElement(shape);
+    picker.appendChild(shapeElement);
 }
 site.addEventListener("pointerenter", function () {
     dropAllowed = true;
-    console.log("dropAllowed");
 });
 site.addEventListener("pointerout", function () {
     dropAllowed = false;
-    console.log("not dropAllowed");
 });
-site.addEventListener("dragover", function (event) {
-    event.preventDefault();
-    console.log("dropAllowed");
-});
-site.addEventListener("drop", function (event) {
-    event.preventDefault();
-    console.log("dropAllowed");
-});
+addShape({ title: "wall", type: "hr", id: 0 });
+addShape({ title: "wall", type: "vr", id: 1 });
+addShape({ title: "chair", type: "circle", id: 2 });
+addShape({ title: "table", type: "rectangle", id: 3 });

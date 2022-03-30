@@ -45,14 +45,26 @@
   background: #ededed;
   border: 2px solid #dadada;
 
-
   color: #333;
+  transition: 250ms ease background-color, 250ms ease opacity;
+
+  cursor: grab;
 }
 
 .polygon-constructor__shape--draggable {
   position: absolute;
   z-index: 1;
 }
+
+.polygon-constructor__shape--dragging {
+  background: #a5a5a5;
+  opacity: 0.75;
+  cursor: grabbing;
+
+  pointer-events: none;
+}
+
+.polygon-constructor__shape--dragging:hover {}
 
 .polygon-constructor__shape--circle {
   width: 3.5em;
@@ -64,4 +76,20 @@
   width: 10em;
   height: 5em;
   border-radius: 0.25em;
+}
+
+.polygon-constructor__shape--hr {
+  width: 1em;
+  height: 10em;
+  border-radius: 0.25em;
+
+  z-index: 2;
+}
+
+.polygon-constructor__shape--vr {
+  width: 10em;
+  height: 1em;
+  border-radius: 0.25em;
+
+  z-index: 2;
 }
