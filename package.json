@@ -3,9 +3,10 @@
   "name": "polygon-constructor",
   "main": "src/index.ts",
   "scripts": {
-    "build": "tsc --build"
+    "build": "tsc --build",
+    "watch": "tsc --watch"
   },
-  "dependencies": {
-    "typescript": "^4.6.3"
+  "devDependencies": {
+    "typescript": "^4.8.0-dev.20220523"
   }
 }
