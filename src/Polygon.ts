@@ -2,9 +2,9 @@ class Polygon {
   static #objects: Set<PolygonObject> = new Set
   static #boundElement: HTMLElement | null = null
 
-  static setBoundElement(element: HTMLElement) {
+  static bindElement(element: HTMLElement) {
     if (this.#boundElement != null) {
-      throw new Error("boundElement has already been set")
+      throw new Error(this.name + " boundElement has already been set")
     }
 
     this.#boundElement = element
@@ -32,7 +32,7 @@ class Polygon {
     }
 
     const polygonRect = this.#boundElement.getBoundingClientRect()
-    const polygonObjectRect = polygonObject.DOMRect
+    const polygonObjectRect = polygonObject.rect
 
 
     if (polygonRect.left > polygonObjectRect.left) return false
@@ -66,7 +66,10 @@ class Polygon {
       throw new Error("boundElement is not set")
     }
 
-    this.#boundElement.replaceChildren(this.#boundElement.firstChild || "")
+    const firstChild = this.#boundElement.children.item(0)
+    if (firstChild) {
+      this.#boundElement.replaceChildren(firstChild)
+    }
 
     for (const polygonObject of this.#objects.values()) {
       const polygonElement = polygonObject.getBoundElement()

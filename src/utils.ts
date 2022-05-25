@@ -1,5 +1,3 @@
-const CLASS_SPLITTER = "--"
-
 function isElementClassModifiedBy(element: HTMLElement, modifier: string): boolean {
   const baseClass = element.classList[0]
   return element.classList.contains(baseClass + CLASS_SPLITTER + modifier)
