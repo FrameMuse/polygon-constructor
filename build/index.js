@@ -1,10 +1,143 @@
 "use strict";
+class Vector2 {
+    x;
+    y;
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+}
+// Math.clamp = function (x: number, min: number, max: number) {
+//   return Math.min(Math.max(x, min), max);
+// }
+class Boundary {
+    static #boundElement = null;
+    static bindElement(element) {
+        if (this.#boundElement != null) {
+            throw new Error(this.name + " boundElement has already been set");
+        }
+        this.#boundElement = element;
+    }
+    static get rect() {
+        if (this.#boundElement === null) {
+            throw new Error(this.name + " boundElement is not set");
+        }
+        return this.#boundElement.getBoundingClientRect();
+    }
+    static offset = new Vector2(0, 0);
+    static #draggingObject = null;
+    /**
+     * The current polygonObject which is being dragged
+     */
+    static get draggingObject() {
+        return this.#draggingObject;
+    }
+    static set draggingObject(polygonObject) {
+        if (this.#draggingObject === polygonObject)
+            return;
+        if (this.#draggingObject != null && polygonObject == null) {
+            this.#draggingObject.dragging = false;
+            this.#draggingObject = null;
+            return;
+        }
+        if (polygonObject != null) {
+            this.#draggingObject = polygonObject;
+            this.#draggingObject.dragging = true;
+            return;
+        }
+        throw new Error("Something wrong");
+    }
+    static #selectedObject = null;
+    /**
+     * The current polygonObject which is selected
+     */
+    static get selectedObject() {
+        return this.#selectedObject;
+    }
+    static set selectedObject(polygonObject) {
+        if (polygonObject === null)
+            return;
+        if (this.#selectedObject === polygonObject)
+            return;
+        if (this.#selectedObject) {
+            this.#selectedObject.selected = false;
+        }
+        polygonObject.selected = true;
+        this.#selectedObject = polygonObject;
+        if (result instanceof HTMLElement) {
+            const componentName = polygonObject.id ? componentNames[polygonObject.id] : "unknown";
+            result.textContent = "Выбрано => " + componentName;
+        }
+    }
+    static dropNotAllowed = false;
+    /**
+     *
+     * Checks if polygonObject can be placed
+     *
+     * Also sets notAllowed state on draggingObject accordingly
+     */
+    static checkIfCanDropObject() {
+        if (this.#draggingObject === null)
+            return false;
+        if (!Polygon.contains(this.#draggingObject)) {
+            this.#draggingObject.notAllowed = true;
+            return false;
+        }
+        if (Polygon.intersectsOtherObjects(this.#draggingObject)) {
+            this.#draggingObject.notAllowed = true;
+            return false;
+        }
+        this.#draggingObject.notAllowed = false;
+        return true;
+    }
+}
+class Picker {
+    static #boundElement = null;
+    static #components = new Set;
+    static bindElement(element) {
+        if (this.#boundElement != null) {
+            throw new Error(this.name + " boundElement has already been set");
+        }
+        this.#boundElement = element;
+    }
+    static createComponent(options) {
+        if (options.id == null)
+            options.id = this.#components.size + 1;
+        const element = document.createElement("div");
+        element.appendChild(createImageElement("elements/" + options.id.toString() + ".png"));
+        element.classList.add(options.className);
+        element.classList.add(...(options.modifiers || []).map(modifier => options.className + CLASS_SPLITTER + modifier));
+        const polygonObject = new PolygonObject(element);
+        polygonObject.id = options.id;
+        element.addEventListener("pointerdown", event => onPointerDown(polygonObject, event));
+        this.#components.add(polygonObject);
+        this.#render();
+    }
+    static #render() {
+        if (this.#boundElement === null) {
+            throw new Error(this.name + " boundElement is not set");
+        }
+        const firstChild = this.#boundElement.children.item(0);
+        if (firstChild) {
+            this.#boundElement.replaceChildren(firstChild);
+        }
+        for (const component of this.#components.values()) {
+            const componentElement = component.getBoundElement();
+            this.#boundElement.append(componentElement);
+        }
+    }
+}
+function createImageElement(src) {
+    const element = document.createElement("img");
+    element.src = src;
+    return element;
+}
 class Polygon {
     static #objects = new Set;
     static #boundElement = null;
-    static setBoundElement(element) {
+    static bindElement(element) {
         if (this.#boundElement != null) {
-            throw new Error("boundElement has already been set");
+            throw new Error(this.name + " boundElement has already been set");
         }
         this.#boundElement = element;
     }
@@ -25,7 +158,7 @@ class Polygon {
             throw new Error("boundElement is not set");
         }
         const polygonRect = this.#boundElement.getBoundingClientRect();
-        const polygonObjectRect = polygonObject.DOMRect;
+        const polygonObjectRect = polygonObject.rect;
         if (polygonRect.left > polygonObjectRect.left)
             return false;
         if (polygonRect.top > polygonObjectRect.top)
@@ -54,7 +187,10 @@ class Polygon {
         if (this.#boundElement === null) {
             throw new Error("boundElement is not set");
         }
-        this.#boundElement.replaceChildren(this.#boundElement.firstChild || "");
+        const firstChild = this.#boundElement.children.item(0);
+        if (firstChild) {
+            this.#boundElement.replaceChildren(firstChild);
+        }
         for (const polygonObject of this.#objects.values()) {
             const polygonElement = polygonObject.getBoundElement();
             this.#boundElement.append(polygonElement);
@@ -64,14 +200,22 @@ class Polygon {
 const DRAGGABLE_MODIFIER = "draggable";
 const DRAGGING_MODIFIER = "dragging";
 const NOT_ALLOWED_MODIFIER = "not-allowed";
+const SELECTED_MODIFIER = "selected";
 class PolygonObject {
+    id;
     #boundElement;
-    // #callbacks: Set<PolygonObjectCallback> = new Set
+    #state = {
+        draggable: false,
+        dragging: false,
+        notAllowed: false,
+        selected: false,
+    };
     /**
      * The ability of to be dragged
      */
-    get draggable() { return isElementClassModifiedBy(this.#boundElement, DRAGGABLE_MODIFIER); }
+    get draggable() { return this.#state.draggable; }
     set draggable(value) {
+        this.#state.draggable = value;
         if (value) {
             addElementClassModification(this.#boundElement, DRAGGABLE_MODIFIER);
         }
@@ -82,8 +226,9 @@ class PolygonObject {
     /**
      * The state of being dragged
      */
-    get dragging() { return isElementClassModifiedBy(this.#boundElement, DRAGGING_MODIFIER); }
+    get dragging() { return this.#state.dragging; }
     set dragging(value) {
+        this.#state.dragging = value;
         if (value) {
             addElementClassModification(this.#boundElement, DRAGGING_MODIFIER);
         }
@@ -94,8 +239,9 @@ class PolygonObject {
     /**
      * The ability to be placed at Polygon
      */
-    get notAllowed() { return isElementClassModifiedBy(this.#boundElement, NOT_ALLOWED_MODIFIER); }
+    get notAllowed() { return this.#state.notAllowed; }
     set notAllowed(value) {
+        this.#state.notAllowed = value;
         if (value) {
             addElementClassModification(this.#boundElement, NOT_ALLOWED_MODIFIER);
         }
@@ -103,30 +249,34 @@ class PolygonObject {
             removeElementClassModification(this.#boundElement, NOT_ALLOWED_MODIFIER);
         }
     }
-    get DOMRect() {
+    /**
+     * The state of being selected
+     */
+    get selected() { return this.#state.selected; }
+    set selected(value) {
+        this.#state.selected = value;
+        if (value) {
+            addElementClassModification(this.#boundElement, SELECTED_MODIFIER);
+        }
+        else {
+            removeElementClassModification(this.#boundElement, SELECTED_MODIFIER);
+        }
+    }
+    get rect() {
         return this.#boundElement.getBoundingClientRect();
     }
     constructor(boundElement) {
         this.#boundElement = boundElement;
-        // Defaults
-        this.draggable = true;
-        this.dragging = false;
-        // Events
-        // this.#listenDragging()
+        const mutationObserver = new MutationObserver(mutationCallback);
+        mutationObserver.observe(boundElement, {
+            attributes: true,
+            attributeFilter: ["style"],
+        });
+        function mutationCallback(_mutations, _observer) {
+            // console.log(1)
+            Boundary.checkIfCanDropObject();
+        }
     }
-    // #listenDragging() {
-    //   const pointerDownEvent = () => this.dragging = true
-    //   const pointerDownMoveEvent = () => this.dragging && this.#runDraggingCallbacks()
-    //   const pointerDownUpEvent = () => this.dragging = false
-    //   this.#boundElement.addEventListener("pointerdown", pointerDownEvent)
-    //   this.#boundElement.addEventListener("pointermove", pointerDownMoveEvent)
-    //   document.addEventListener("pointerup", pointerDownUpEvent)
-    // }
-    // #runDraggingCallbacks() {
-    //   for (const callback of this.#callbacks) {
-    //     callback(this)
-    //   }
-    // }
     /**
      *
      * Checks whether polygonObject intersects other polygonObject
@@ -134,8 +284,8 @@ class PolygonObject {
     intersects(otherPolygonObject) {
         if (this === otherPolygonObject)
             return false;
-        const polygonObjectRect = this.DOMRect;
-        const otherPolygonObjectRect = otherPolygonObject.DOMRect;
+        const polygonObjectRect = this.rect;
+        const otherPolygonObjectRect = otherPolygonObject.rect;
         if (polygonObjectRect.top > otherPolygonObjectRect.bottom)
             return false;
         if (polygonObjectRect.bottom < otherPolygonObjectRect.top)
@@ -149,216 +299,189 @@ class PolygonObject {
     getBoundElement() {
         return this.#boundElement;
     }
-    move(pageX, pageY) {
-        const boundaryRect = boundary.getBoundingClientRect();
-        const x = pageX - boundaryRect.left - offsetX;
-        const y = pageY - boundaryRect.top - offsetY;
-        this.#boundElement.style.top = y + "px";
-        this.#boundElement.style.left = x + "px";
+    get position() {
+        return new Vector2(this.rect.x, this.rect.y);
     }
-}
-class Vector2 {
-    x;
-    y;
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
+    set position(vector) {
+        // function getCurrentRotation(element: HTMLElement) {
+        //   var style = window.getComputedStyle(element, null)
+        //   var transform = style.getPropertyValue("-webkit-transform") ||
+        //     style.getPropertyValue("-moz-transform") ||
+        //     style.getPropertyValue("-ms-transform") ||
+        //     style.getPropertyValue("-o-transform") ||
+        //     style.getPropertyValue("transform") ||
+        //     "none"
+        //   if (transform != "none") {
+        //     // console.log(transform)
+        //     var values = transform.split('(')[1].split(')')[0].split(',')
+        //     //return Math.round(Math.atan2(values[1],values[0]) * (180/Math.PI)) //this would return negative values the OP doesn't wants so it got commented and the next lines of code added
+        //     var angle = Math.round(Math.atan2(+values[1], +values[0]) * (180 / Math.PI))
+        //     return [(angle < 0 ? angle + 360 : angle), +values[1], +values[0]] //adding 360 degrees here when angle < 0 is equivalent to adding (2 * Math.PI) radians before
+        //   }
+        //   return [0, 0, 0]
+        // }
+        // const [angle, a, b] = getCurrentRotation(this.#boundElement)
+        const oldPosition = this.position;
+        const x = vector.x - Boundary.rect.left - Boundary.offset.x;
+        const y = vector.y - Boundary.rect.top - Boundary.offset.y;
+        // const velocity = new Vector2(
+        //   oldPosition
+        // )
+        // // Math.clamp()
+        this.#boundElement.style.left = x + "px";
+        this.#boundElement.style.top = y + "px";
+        // console.log(x, y)
+        // console.log(x * b, y * b)
+    }
+    #rotated = false;
+    rotate() {
+        this.#rotated = !this.#rotated;
+        this.#boundElement.style.transform = `rotateZ(${+this.#rotated * 90}deg)`;
+    }
+    #listeners = new Map;
+    /**
+     * Sets up a function that will be called whenever the specified event is delivered to the target.
+     *
+     * @param type A case-sensitive string representing the event type to listen for.
+     * @param listener The object that receives a notification. Also provides polygonObject from the context it is called.
+     * @param options An object that specifies characteristics about the event listener.
+     *
+     */
+    on(type, listener, options) {
+        const eventFunction = ((event) => listener(this, event));
+        this.#listeners.set(listener, eventFunction);
+        if (type === "pointerup") {
+            document.addEventListener(type, eventFunction, options);
+            return;
+        }
+        this.#boundElement.addEventListener(type, eventFunction, options);
+    }
+    /**
+     * Removes a function that were passed to `on`.
+     *
+     * @param type A case-sensitive string representing the event type to listen for.
+     * @param listener The object that receives a notification. Also provides polygonObject from the context it is called.
+     *
+     */
+    off(type, listener) {
+        const eventFunction = this.#listeners.get(listener);
+        if (eventFunction == null)
+            return;
+        if (type === "pointerup") {
+            document.removeEventListener(type, eventFunction);
+            return;
+        }
+        this.#boundElement.removeEventListener(type, eventFunction);
     }
 }
 const result = document.getElementById("result");
 const boundary = document.body.querySelector("[data-pc-boundary]");
 const polygon = document.body.querySelector("[data-pc-polygon]");
-const site = document.body.querySelector("[data-pc-site]");
 const picker = document.body.querySelector("[data-pc-picker]");
-const siteRect = site.getBoundingClientRect();
-Polygon.setBoundElement(polygon);
-const shapes = new Map;
-let placements = new Map;
-let offsetX = 0;
-let offsetY = 0;
-const dropNotAllowedRef = new Proxy({ current: false }, {
-    set(target, _key, value) {
-        if (draggingElementRef.current === null) {
-            target.current = false;
-            return true;
-        }
-        if (value) {
-            target.current = true;
-            draggingElementRef.current.notAllowed = true;
-            return true;
-        }
-        else {
-            target.current = false;
-            draggingElementRef.current.notAllowed = false;
-            return true;
-        }
-        return false;
-    }
-});
-const draggingRef = new Proxy({ current: false }, {
-    get() {
-        return draggingElementRef.current !== null;
-    },
-});
-const draggingElementRef = new Proxy({ current: null }, {
-    get(target) {
-        return target.current;
-    },
-    set(polygonObject, _key, nextPolygonObject) {
-        if (polygonObject.current === nextPolygonObject)
-            return true;
-        if (polygonObject.current != null && nextPolygonObject == null) {
-            polygonObject.current.dragging = false;
-            polygonObject.current = null;
-            return true;
-        }
-        if (polygonObject.current == null && nextPolygonObject != null) {
-            polygonObject.current = nextPolygonObject;
-            polygonObject.current.dragging = true;
-            return true;
-        }
-        return false;
-        // nextPolygonObject?.dragging = true
-        // nextPolygonObject?.boundElement
-        // value?.classList.add("polygon-constructor__object--active")
-        // result.textContent = `Current: ${nextPolygonObject?.textContent || nextPolygonObject}`
-        // polygonObject.current?.classList.remove("polygon-constructor__object--active")
-        // polygonObject.current?.classList.remove("polygon-constructor__object--not-allowed")
-        // polygonObject.current = nextPolygonObject
-        // return true
-    }
-});
-/**
- * @deprecated
- */
-function getNotAllowedState() {
-    if (draggingElementRef.current === null)
-        return false;
-    if (!Polygon.contains(draggingElementRef.current)) {
-        return true;
-    }
-    if (Polygon.intersectsOtherObjects(draggingElementRef.current)) {
-        return true;
-    }
-    return false;
+const CLASS_SPLITTER = "--";
+const componentNames = {
+    1: "Элемент стены, цвет белый 100×250",
+    2: "Элемент стены, цвет белый 50×250",
+    3: "Дверь раздвижная 100×250",
+    4: "Занавес 100×250",
+    5: "Витрина с внутренней подсветкой 1×0.5h-2.5m",
+    6: "Стеллаж сборный на профиле, металлический 4 полки 0.5×1×H-2m",
+    7: "Полка настенная 1m",
+    8: "Барная стойка H-1m    L-1m",
+    9: "Радиусная барная стойка R-1m",
+    10: "Витрина 0.5×1×h-1.8m",
+    11: "Витрина 0.5×0.5×h-2.5m",
+    12: "Витрина 0.5×1×h-1.1m",
+    13: "Витрина 0.5×1×h-1.1m (монтажная)",
+    14: "Витрина 0.5×0.5×h-1.1m",
+    15: "Радиальная витрина R 1.0×R 0.5×H-1.1m",
+    16: "Радиальная витрина R 1.0×R 0.5×H-2.5m",
+    17: "Подиум 0.5×1×H-0.8m",
+    18: "Подиум 1×1×H-0.8m",
+    19: "Вешалка настенная",
+};
+if (picker instanceof HTMLElement) {
+    Picker.bindElement(picker);
 }
-boundary.addEventListener("pointermove", event => {
-    event.preventDefault();
-    if (event.pressure < 0.5)
-        return;
-    if (draggingElementRef.current === null)
-        return;
-    dropNotAllowedRef.current = getNotAllowedState();
-    draggingElementRef.current.move(event.x, event.y);
-});
+if (polygon instanceof HTMLElement) {
+    Polygon.bindElement(polygon);
+}
+if (boundary instanceof HTMLElement) {
+    Boundary.bindElement(boundary);
+    boundary.addEventListener("pointermove", event => {
+        event.preventDefault();
+        if (event.pressure < 0.5)
+            return;
+        if (Boundary.draggingObject) {
+            Boundary.draggingObject.position = new Vector2(event.x, event.y);
+        }
+    });
+    window.addEventListener("keydown", event => {
+        if (event.altKey)
+            return;
+        if (event.ctrlKey)
+            return;
+        if (event.key.toLowerCase() !== "r")
+            return;
+        event.preventDefault();
+        if (Boundary.draggingObject) {
+            Boundary.draggingObject.rotate();
+        }
+    });
+}
 function startDragging(polygonObject, event) {
     event.preventDefault();
-    draggingElementRef.current = polygonObject;
-    dropNotAllowedRef.current = getNotAllowedState();
-    polygonObject.move(event.x, event.y);
-    document.addEventListener("pointerup", onDraggingEnd);
+    polygonObject.position = new Vector2(event.x, event.y);
+    polygonObject.on("pointerup", stopDragging, { once: true });
+    Boundary.draggingObject = polygonObject;
 }
-function onDraggingEnd(event) {
+function stopDragging(polygonObject, event) {
     event.preventDefault();
-    console.log("onDraggingEnd");
-    if (dropNotAllowedRef.current && draggingElementRef.current) {
-        console.log("onDraggingEnd => dropNotAllowedRef");
-        Polygon.unsettle(draggingElementRef.current);
+    if (polygonObject.notAllowed) {
+        Polygon.unsettle(polygonObject);
     }
-    draggingElementRef.current = null;
-    document.removeEventListener("pointerup", onDraggingEnd);
-}
-function onPointerDown(event) {
-    const polygonObject = cloneAsPolygonObject(this);
-    Polygon.settle(polygonObject);
-    // // polygon.appendChild(polygonObject.)
-    // draggingElementRef.current = polygonObject
-    const t = this.getBoundingClientRect();
-    offsetX = event.x - t.left;
-    offsetY = event.y - t.top;
-    startDragging(polygonObject, event);
-    // onDraggingStart.call(polygonObject, event)
-}
-function cloneAsPolygonObject(element) {
-    const clonedElement = element.cloneNode(true);
-    const polygonObject = new PolygonObject(clonedElement);
-    clonedElement.addEventListener("pointerdown", function (event) {
-        const clonedElementRect = this.getBoundingClientRect();
-        offsetX = event.x - clonedElementRect.left;
-        offsetY = event.y - clonedElementRect.top;
-        startDragging(polygonObject, event);
-    });
-    return polygonObject;
-}
-function commitStore() {
-    if (draggingElementRef.current == null)
-        return;
-    // const id = draggingElementRef.current.dataset.pcId
-    // if (id == null) return
-    // if (isNaN(+id)) return
-    // const shape = shapes.get(+id)
-    // if (shape == null) return
-    // placements.set(+id, {
-    //   x: draggingElementRef.current.offsetLeft - site.offsetLeft,
-    //   y: draggingElementRef.current.offsetTop - site.offsetTop,
-    // })
-    // const id = draggingElement.id
-    // if (dropAllowed) {
-    //   if (!shapes[id].elements.has(draggingElement)) {
-    //     shapes[id].elements.add(draggingElement)
-    //   }
-    // } else {
-    //   shapes[id].elements.delete(draggingElement)
-    // }
-    // // render result
-    // const rss = document.getElementById("r" + id) as HTMLDivElement
-    // rss.textContent = shapes[id].title + ": " + shapes[id].elements.size
-}
-function createPolygonElement(shape) {
-    const polygonElement = document.createElement("div");
-    polygonElement.dataset.pcId = String(shape.id);
-    polygonElement.innerText = shape.title;
-    polygonElement.classList.add("polygon-constructor__object", "polygon-constructor__object" + "--" + shape.type);
-    polygonElement.addEventListener("pointerdown", onPointerDown);
-    return polygonElement;
-}
-function addShape(shape) {
-    if (shapes.has(shape.id)) {
-        throw new Error("This id is already in use");
+    else {
+        Boundary.selectedObject = polygonObject;
     }
-    shapes.set(shape.id, shape);
-    const shapeElement = createPolygonElement(shape);
-    picker.appendChild(shapeElement);
+    Boundary.draggingObject = null;
 }
-function getPlacements() {
-    return [...placements.entries()];
+function onPointerDown(polygonObject, event) {
+    const clonedPolygonObject = clonePolygonObject(polygonObject);
+    Polygon.settle(clonedPolygonObject);
+    Boundary.offset = new Vector2(event.x - polygonObject.rect.left, event.y - polygonObject.rect.top);
+    startDragging(clonedPolygonObject, event);
 }
-function setPlacements(newPlacements) {
-    polygon.querySelectorAll(".polygon-constructor__object--draggable").forEach(e => e.remove());
-    placements = new Map(newPlacements);
-    placements.forEach((place, key) => {
-        const shape = shapes.get(key);
-        if (shape == null)
-            return;
-        const shapeElement = createPolygonElement(shape);
-        const draggableShape = cloneAsPolygonObject(shapeElement);
-        // draggableShape.style.top = site.offsetTop + place.y + "px"
-        // draggableShape.style.left = site.offsetLeft + place.x + "px"
-        // polygon.appendChild(draggableShape)
+function clonePolygonObject(polygonObject) {
+    const clonedElement = polygonObject.getBoundElement().cloneNode(true);
+    const clonedPolygonObject = new PolygonObject(clonedElement);
+    clonedPolygonObject.id = polygonObject.id;
+    clonedPolygonObject.draggable = true;
+    clonedPolygonObject.on("pointerdown", (polygonObject, event) => {
+        Boundary.offset = new Vector2(event.x - polygonObject.rect.left, event.y - polygonObject.rect.top);
+        startDragging(clonedPolygonObject, event);
     });
+    return clonedPolygonObject;
 }
-site.addEventListener("pointerenter", () => {
-    dropNotAllowedRef.current = true;
-});
-site.addEventListener("pointerout", () => {
-    dropNotAllowedRef.current = false;
-});
-addShape({ title: "wall", type: "hr", id: 0 });
-addShape({ title: "wall", type: "vr", id: 1 });
-addShape({ title: "chair", type: "circle", id: 2 });
-addShape({ title: "table", type: "rectangle", id: 3 });
-addShape({ title: "", type: "corner", id: 4 });
-const CLASS_SPLITTER = "--";
+const DEFAULT_CLASS_NAME = "polygon-constructor__object";
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
+Picker.createComponent({ className: DEFAULT_CLASS_NAME });
 function isElementClassModifiedBy(element, modifier) {
     const baseClass = element.classList[0];
     return element.classList.contains(baseClass + CLASS_SPLITTER + modifier);
