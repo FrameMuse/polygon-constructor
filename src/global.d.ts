@@ -1,6 +1,4 @@
-/// <reference no-default-lib="true"/>
-
-declare module global {
+declare global {
   interface Math {
     /**
      * Returns a number whose value is limited to the given range.
@@ -16,4 +14,3 @@ declare module global {
     clamp(x: number, min: number, max: number): number;
   }
 }
-// export { }

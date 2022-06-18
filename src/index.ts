@@ -1,8 +1,9 @@
-const result = document.getElementById("result")
+const resultTitle = document.getElementById("result-title") as HTMLElement
+const resultText = document.getElementById("result-text") as HTMLElement
 
-const boundary = document.body.querySelector("[data-pc-boundary]")
-const polygon = document.body.querySelector("[data-pc-polygon]")
-const picker = document.body.querySelector("[data-pc-picker]")
+const boundary = document.body.querySelector("[pc-boundary]")
+const polygon = document.body.querySelector("[pc-polygon]")
+const picker = document.body.querySelector("[pc-picker]")
 
 const CLASS_SPLITTER = "--"
 
@@ -40,10 +41,13 @@ if (boundary instanceof HTMLElement) {
   Boundary.bindElement(boundary)
 
   boundary.addEventListener("pointermove", event => {
+    Boundary.currentPointerEvent = event
+
     event.preventDefault()
     if (event.pressure < 0.5) return
 
     if (Boundary.draggingObject) {
+      // console.log(event)
       Boundary.draggingObject.position = new Vector2(event.x, event.y)
     }
   })
@@ -64,10 +68,15 @@ if (boundary instanceof HTMLElement) {
 function startDragging(polygonObject: PolygonObject, event: PointerEvent) {
   event.preventDefault()
 
+  Boundary.updateOffset(event)
+  Boundary.draggingObject = polygonObject
+
+  polygonObject.transform.origin = [
+    new CSSUnit(event.offsetX, "px"),
+    new CSSUnit(event.offsetY, "px")
+  ]
   polygonObject.position = new Vector2(event.x, event.y)
   polygonObject.on("pointerup", stopDragging, { once: true })
-
-  Boundary.draggingObject = polygonObject
 }
 
 function stopDragging(polygonObject: PolygonObject, event: PointerEvent) {
@@ -82,55 +91,35 @@ function stopDragging(polygonObject: PolygonObject, event: PointerEvent) {
   Boundary.draggingObject = null
 }
 
-function onPointerDown(polygonObject: PolygonObject, event: PointerEvent) {
-  const clonedPolygonObject = clonePolygonObject(polygonObject)
-
-  Polygon.settle(clonedPolygonObject)
-
-  Boundary.offset = new Vector2(
-    event.x - polygonObject.rect.left,
-    event.y - polygonObject.rect.top
-  )
-
-  startDragging(clonedPolygonObject, event)
-}
-
 function clonePolygonObject(polygonObject: PolygonObject): PolygonObject {
-  const clonedElement = polygonObject.getBoundElement().cloneNode(true) as HTMLDivElement
+  const clonedElement = polygonObject.boundElement.cloneNode(true) as HTMLDivElement
   const clonedPolygonObject = new PolygonObject(clonedElement)
 
   clonedPolygonObject.id = polygonObject.id
   clonedPolygonObject.draggable = true
-  clonedPolygonObject.on("pointerdown", (polygonObject, event) => {
-    Boundary.offset = new Vector2(
-      event.x - polygonObject.rect.left,
-      event.y - polygonObject.rect.top
-    )
-
-    startDragging(clonedPolygonObject, event)
-  })
+  clonedPolygonObject.on("pointerdown", startDragging)
 
   return clonedPolygonObject
 }
 
 const DEFAULT_CLASS_NAME = "polygon-constructor__object"
 
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
-Picker.createComponent({ className: DEFAULT_CLASS_NAME })
+Picker.createComponent({ title: "asd1", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd32", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd3", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd4", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd5", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd6", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd7", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd8", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd9", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd1123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd123123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd3123213", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd31231", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd312321", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd23123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.createComponent({ title: "asd3123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })

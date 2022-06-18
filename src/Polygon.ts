@@ -10,13 +10,33 @@ class Polygon {
     this.#boundElement = element
   }
 
+  static get rect(): DOMRect {
+    if (this.#boundElement === null) {
+      throw new Error("boundElement is not set")
+    }
+
+    return this.#boundElement.getBoundingClientRect()
+  }
+
+  static get boundElement() {
+    if (this.#boundElement === null) {
+      throw new Error("boundElement is not set")
+    }
+
+    return this.#boundElement
+  }
+
   static settle(polygonObject: PolygonObject) {
+    polygonObject.settle()
+
     this.#objects.add(polygonObject)
 
     this.#render()
   }
 
   static unsettle(polygonObject: PolygonObject) {
+    polygonObject.unsettle()
+
     this.#objects.delete(polygonObject)
 
     this.#render()
@@ -54,7 +74,7 @@ class Polygon {
       throw new Error("boundElement is not set")
     }
 
-    for (const otherPolygonObject of this.#objects.values()) {
+    for (const otherPolygonObject of this.#objects) {
       if (polygonObject.intersects(otherPolygonObject)) return true
     }
 
@@ -66,15 +86,31 @@ class Polygon {
       throw new Error("boundElement is not set")
     }
 
-    const firstChild = this.#boundElement.children.item(0)
-    if (firstChild) {
-      this.#boundElement.replaceChildren(firstChild)
-    }
+    this.#boundElement.replaceChildren()
 
-    for (const polygonObject of this.#objects.values()) {
-      const polygonElement = polygonObject.getBoundElement()
+    for (const polygonObject of this.#objects) {
+      const polygonElement = polygonObject.boundElement
 
       this.#boundElement.append(polygonElement)
     }
+  }
+
+  static getObjectsByGroups() {
+    const result: Record<keyof never, PolygonObject[] | undefined> = {}
+    for (const polygonObject of this.#objects) {
+      if (polygonObject.id == null) {
+        console.warn("Some of the objects has no id, it will be skipped.", polygonObject)
+        continue
+      }
+
+      // result[polygonObject.id]?.push(polygonObject) || (result[polygonObject.id] = [polygonObject])
+      result[polygonObject.id] = [...result[polygonObject.id] || [], polygonObject]
+    }
+
+    return result
+  }
+
+  static get objectsCount(): number {
+    return this.#objects.size
   }
 }

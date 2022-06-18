@@ -5,19 +5,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
-    <title>Demo</title>
+    <title>Polygon Constructor</title>
   </head>
 
   <body>
     <main>
-      <div class="polygon-constructor" data-pc-boundary>
-        <div>
-          <div class="polygon-constructor__polygon" data-pc-polygon>
-            <div class="polygon-constructor__site" data-pc-site></div>
-          </div>
-          <div id="result"></div>
+      <div class="polygon-constructor" pc-boundary>
+        <div class="polygon-constructor__header">
+          <h2 class="polygon-constructor__title">Polygon Constructor</h2>
+          <p class="polygon-constructor__subtitle">
+            A polygon constructor for creating polygons.
+          </p>
         </div>
-        <div class="polygon-constructor__picker" data-pc-picker></div>
+        <div class="polygon-constructor__body">
+          <div class="polygon-constructor__container">
+            <div class="polygon-constructor__polygon" pc-polygon>
+              <!-- <template class="polygon-constructor__block" pc-polygon-block-example></template> -->
+            </div>
+            <div class="polygon-constructor-info">
+              <div class="polygon-constructor-info__title">Chosen object - <b id="result-title">Не выбрано</b></div>
+              <p class="polygon-constructor-info__text" id="result-text"></p>
+            </div>
+            <!-- <div id="result"></div> -->
+          </div>
+          <div class="polygon-constructor-sidebar">
+            <div class="polygon-constructor-sidebar__title">Pick a block</div>
+            <div class="polygon-constructor-sidebar__container" pc-picker>
+              <!-- <template class="polygon-constructor-sidebar__block" pc-picker-block-example></template> -->
+            </div>
+          </div>
+        </div>
       </div>
     </main>
     <script src="./index.js"></script>

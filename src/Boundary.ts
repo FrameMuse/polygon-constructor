@@ -65,10 +65,24 @@ class Boundary {
 
     this.#selectedObject = polygonObject
 
-    if (result instanceof HTMLElement) {
-      const componentName = polygonObject.id ? componentNames[polygonObject.id] : "unknown"
-      result.textContent = "Выбрано => " + componentName
-    }
+    const componentName = polygonObject.id ? componentNames[polygonObject.id] : "unknown"
+    const objectsByGroups = Polygon.getObjectsByGroups()
+
+    resultTitle.innerHTML = componentName
+    const rotateButton = document.createElement("button")
+    rotateButton.type = "button"
+    rotateButton.textContent = "Rotate"
+    rotateButton.addEventListener("pointerdown", () => {
+      const origin = new Vector2(polygonObject.rect.width / 2, polygonObject.rect.height / 2)
+      polygonObject.rotate(origin)
+    })
+    resultTitle.append(rotateButton)
+
+    resultText.innerHTML = `Использованные блоки => <br>${Object.keys(objectsByGroups).map(key => {
+      const objectsGroup = objectsByGroups[key]
+
+      return `"${componentNames[key]}": ${objectsGroup?.length || "Bug detected"}`
+    }).join(",<br>")}`
   }
 
   static dropNotAllowed: boolean = false
@@ -79,20 +93,43 @@ class Boundary {
    * 
    * Also sets notAllowed state on draggingObject accordingly
    */
-  static checkIfCanDropObject(): boolean {
-    if (this.#draggingObject === null) return false
-
-    if (!Polygon.contains(this.#draggingObject)) {
-      this.#draggingObject.notAllowed = true
+  static checkIfObjectAllowed(polygonObject: PolygonObject): boolean {
+    if (!Polygon.contains(polygonObject)) {
+      polygonObject.notAllowed = true
       return false
     }
 
-    if (Polygon.intersectsOtherObjects(this.#draggingObject)) {
-      this.#draggingObject.notAllowed = true
+    if (Polygon.intersectsOtherObjects(polygonObject)) {
+      polygonObject.notAllowed = true
       return false
     }
 
-    this.#draggingObject.notAllowed = false
+    polygonObject.notAllowed = false
     return true
+  }
+
+  static checkIfObjectsAllowed(polygonObjects: PolygonObject[]): boolean {
+    return polygonObjects.every(this.checkIfObjectAllowed)
+  }
+
+  static checkIfObjectsAllowedAndSetDropNotAllowed(polygonObjects: PolygonObject[]): boolean {
+    const result = this.checkIfObjectsAllowed(polygonObjects)
+
+    if (!result) {
+      this.dropNotAllowed = true
+    } else {
+      this.dropNotAllowed = false
+    }
+
+    return result
+  }
+
+  static currentPointerEvent: PointerEvent = new PointerEvent("")
+
+  static updateOffset(pointerEvent?: PointerEvent): Vector2 {
+    const event = pointerEvent ?? this.currentPointerEvent
+
+    Boundary.offset = new Vector2(event.offsetX, event.offsetY)
+    return Boundary.offset
   }
 }

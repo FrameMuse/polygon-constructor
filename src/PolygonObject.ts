@@ -6,6 +6,7 @@ const SELECTED_MODIFIER = "selected"
 class PolygonObject {
   id?: keyof never
 
+  #clumpedPositionStep: boolean = false
   #boundElement: HTMLElement
   #state = {
     draggable: false,
@@ -13,6 +14,8 @@ class PolygonObject {
     notAllowed: false,
     selected: false,
   }
+
+  transform: CSSTransform
 
   /**
    * The ability of to be dragged
@@ -74,20 +77,54 @@ class PolygonObject {
     return this.#boundElement.getBoundingClientRect()
   }
 
-  constructor(boundElement: HTMLElement) {
+  constructor(boundElement: unknown) {
+    if (!(boundElement instanceof HTMLElement)) {
+      throw new Error("boundElement must be an instance of HTMLElement")
+    }
+
     this.#boundElement = boundElement
+    this.transform = new CSSTransform(this.#boundElement)
 
-
+    const mutationCallback = (_mutations: MutationRecord[], _observer: MutationObserver) => {
+      Boundary.checkIfObjectAllowed(this)
+    }
     const mutationObserver = new MutationObserver(mutationCallback)
     mutationObserver.observe(boundElement, {
       attributes: true,
       attributeFilter: ["style"],
     })
 
-    function mutationCallback(_mutations: MutationRecord[], _observer: MutationObserver) {
-      // console.log(1)
-      Boundary.checkIfCanDropObject()
-    }
+    this.on("contextmenu", (_, event) => {
+      event.preventDefault()
+    })
+
+    window.addEventListener("keydown", event => {
+      if (event.altKey) return
+      if (event.ctrlKey) return
+      if (!event.shiftKey || event.key.toLowerCase() !== "shift") return
+      event.preventDefault()
+      // console.log(event)
+
+      if (polygon instanceof HTMLElement) {
+        polygon.style.backgroundImage = `
+          repeating-linear-gradient(90deg, transparent 0 23px, rgba(0, 0, 0, 0.25) 23px 30px),
+          repeating-linear-gradient(transparent 0 23px, rgba(0, 0, 0, 0.25) 23px 30px)
+        `
+      }
+      this.#clumpedPositionStep = true
+    })
+
+    window.addEventListener("keyup", event => {
+      // if (event.altKey) return
+      // if (event.ctrlKey) return
+      // if (!event.shiftKey || event.key.toLowerCase() !== "shift") return
+      event.preventDefault()
+
+      if (polygon instanceof HTMLElement) {
+        polygon.style.backgroundImage = ""
+      }
+      this.#clumpedPositionStep = false
+    })
   }
 
   /**
@@ -109,7 +146,7 @@ class PolygonObject {
     return true
   }
 
-  getBoundElement() {
+  get boundElement() {
     return this.#boundElement
   }
 
@@ -117,49 +154,84 @@ class PolygonObject {
     return new Vector2(this.rect.x, this.rect.y)
   }
   set position(vector: Vector2) {
-    // function getCurrentRotation(element: HTMLElement) {
-    //   var style = window.getComputedStyle(element, null)
-    //   var transform = style.getPropertyValue("-webkit-transform") ||
-    //     style.getPropertyValue("-moz-transform") ||
-    //     style.getPropertyValue("-ms-transform") ||
-    //     style.getPropertyValue("-o-transform") ||
-    //     style.getPropertyValue("transform") ||
-    //     "none"
-    //   if (transform != "none") {
-    //     // console.log(transform)
-    //     var values = transform.split('(')[1].split(')')[0].split(',')
-    //     //return Math.round(Math.atan2(values[1],values[0]) * (180/Math.PI)) //this would return negative values the OP doesn't wants so it got commented and the next lines of code added
-    //     var angle = Math.round(Math.atan2(+values[1], +values[0]) * (180 / Math.PI))
-    //     return [(angle < 0 ? angle + 360 : angle), +values[1], +values[0]] //adding 360 degrees here when angle < 0 is equivalent to adding (2 * Math.PI) radians before
-    //   }
-    //   return [0, 0, 0]
+    // function normalize(value: number, by: number): number {
+    //   return value - (value % by)
     // }
 
-    // const [angle, a, b] = getCurrentRotation(this.#boundElement)
+    let x = vector.x - Polygon.rect.left - Boundary.offset.x
+    let y = vector.y - Polygon.rect.top - Boundary.offset.y
 
-    const oldPosition = this.position
 
-    const x = vector.x - Boundary.rect.left - Boundary.offset.x
-    const y = vector.y - Boundary.rect.top - Boundary.offset.y
+    const computedStyle = getComputedStyle(Polygon.boundElement)
 
-    // const velocity = new Vector2(
-    //   oldPosition
-    // )
+    const paddingX = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight)
+    const paddingY = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom)
 
-    // // Math.clamp()
+    const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth)
+    const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth)
 
-    this.#boundElement.style.left = x + "px"
-    this.#boundElement.style.top = y + "px"
 
-    // console.log(x, y)
-    // console.log(x * b, y * b)
+    x -= (paddingX / 2) + (borderX / 2)
+    y -= (paddingY / 2) + (borderY / 2)
+
+
+    // if (this.#clumpedPositionStep && !this.#state.notAllowed) {
+    //   x = normalize(x, 30)
+    //   y = normalize(y, 30)
+    // }
+
+    this.transform.functions.translateX = new CSSUnit(x, "px")
+    this.transform.functions.translateY = new CSSUnit(y, "px")
   }
 
-  #rotated: boolean = false
-  rotate() {
-    this.#rotated = !this.#rotated
+  rotated: boolean = false
+  rotate(origin?: Vector2) {
+    this.rotated = !this.rotated
 
-    this.#boundElement.style.transform = `rotateZ(${+this.#rotated * 90}deg)`
+    Polygon.contains
+
+    if (origin) {
+      this.transform.origin = [new CSSUnit(origin.x, "px"), new CSSUnit(origin.y, "px")]
+    }
+    this.transform.functions.rotateZ = new CSSUnit(this.rotated ? 90 : 0, "deg")
+
+
+    // setTimeout(() => {
+    //   if (this.notAllowed) {
+    //     this.rotate(origin)
+    //   }
+    // })
+  }
+
+  clone(): PolygonObject {
+    const clone = new PolygonObject(this.#boundElement.cloneNode(true) as HTMLElement)
+    clone.position = this.position
+    clone.rotated = this.rotated
+    return clone
+  }
+
+  #onSettledCallbacks: Function[] = []
+  onSettled(callback: Function) {
+    this.#onSettledCallbacks.push(callback)
+  }
+
+  /**
+   * Says to polygonObject that it is settled
+   */
+  settle() {
+    this.#onSettledCallbacks.forEach(callback => callback())
+  }
+
+  #onUnsettledCallbacks: Function[] = []
+  onUnsettled(callback: Function) {
+    this.#onUnsettledCallbacks.push(callback)
+  }
+
+  /**
+   * Says to polygonObject that it is unsettled
+   */
+  unsettle() {
+    this.#onUnsettledCallbacks.forEach(callback => callback())
   }
 
   #listeners: Map<Function, EventListener> = new Map
