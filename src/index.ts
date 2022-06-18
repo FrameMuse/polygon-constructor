@@ -82,7 +82,7 @@ function startDragging(polygonObject: PolygonObject, event: PointerEvent) {
 function stopDragging(polygonObject: PolygonObject, event: PointerEvent) {
   event.preventDefault()
 
-  if (polygonObject.notAllowed) {
+  if (polygonObject.state.notAllowed) {
     Polygon.unsettle(polygonObject)
   } else {
     Boundary.selectedObject = polygonObject
@@ -96,7 +96,7 @@ function clonePolygonObject(polygonObject: PolygonObject): PolygonObject {
   const clonedPolygonObject = new PolygonObject(clonedElement)
 
   clonedPolygonObject.id = polygonObject.id
-  clonedPolygonObject.draggable = true
+  clonedPolygonObject.state.draggable = true
   clonedPolygonObject.on("pointerdown", startDragging)
 
   return clonedPolygonObject

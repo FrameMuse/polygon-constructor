@@ -79,11 +79,7 @@ class PickerComponent {
     this.#usedAmount = value
     this.#amountElement.textContent = "x" + String(this.maxAmount - value)
 
-    if (value >= this.maxAmount) {
-      addElementClassModification(this.#element, "disabled")
-    } else {
-      removeElementClassModification(this.#element, "disabled")
-    }
+    toggleElementClassModification(this.#element, "disabled", value >= this.maxAmount)
   }
 
   get usedAmount(): number {

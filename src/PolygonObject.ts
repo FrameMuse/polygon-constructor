@@ -1,95 +1,75 @@
-const DRAGGABLE_MODIFIER = "draggable"
-const DRAGGING_MODIFIER = "dragging"
-const NOT_ALLOWED_MODIFIER = "not-allowed"
-const SELECTED_MODIFIER = "selected"
+function decorateClassModifierToggle<T extends object>(target: T, propertyNameOfState: keyof T, onElement: HTMLElement) {
+  const state = target[propertyNameOfState] as unknown
 
-class PolygonObject {
+  if (!isDictionary(state)) {
+    throw new Error(`${propertyNameOfState.toString()} is not a dictionary`)
+  }
+
+  if (Object.keys(state).length === 0) {
+    throw new Error(`${propertyNameOfState.toString()} is empty`)
+  }
+
+  if (!Object.values(state).every(value => typeof value === "boolean")) {
+    throw new Error(`${propertyNameOfState.toString()} must be a dictionary of booleans`)
+  }
+
+  const stateModifiers = Object.keys(state).reduce((result, nextKey) => ({ ...result, [nextKey]: camelToDash(nextKey) }), {}) as Record<string, string>
+
+  Reflect.set(target, propertyNameOfState, new Proxy(state, {
+    get(target, key) {
+      return target[key]
+    },
+    set(target, key: string, value: boolean) {
+      const stateValue = target[key]
+      if (stateValue === value) return true
+
+      // console.log(123)
+
+      target[key] = value
+      toggleElementClassModification(onElement, stateModifiers[key], value)
+
+      return true
+    }
+  }))
+}
+
+
+
+
+class PolygonObject extends BoundElement {
   id?: keyof never
 
-  #clumpedPositionStep: boolean = false
-  #boundElement: HTMLElement
-  #state = {
+  state = {
+    /**
+      * Whether the polygonObject can be dragged
+      */
     draggable: false,
+    /**
+      * Whether the polygonObject is being dragged
+      */
     dragging: false,
+    /**
+     * Whether the polygonObject is not allowed to be dragged
+     */
     notAllowed: false,
+    /**
+     * Whether the polygonObject is selected by pointer
+     */
     selected: false,
   }
 
-  transform: CSSTransform
+  constructor(element: unknown) {
+    super(element)
 
-  /**
-   * The ability of to be dragged
-   */
-  get draggable() { return this.#state.draggable }
-  set draggable(value: boolean) {
-    this.#state.draggable = value
+    // this.boundElement.addEventListener("animationend")
 
-    if (value) {
-      addElementClassModification(this.#boundElement, DRAGGABLE_MODIFIER)
-    } else {
-      removeElementClassModification(this.#boundElement, DRAGGABLE_MODIFIER)
-    }
-  }
-
-  /**
-   * The state of being dragged
-   */
-  get dragging() { return this.#state.dragging }
-  set dragging(value: boolean) {
-    this.#state.dragging = value
-
-    if (value) {
-      addElementClassModification(this.#boundElement, DRAGGING_MODIFIER)
-    } else {
-      removeElementClassModification(this.#boundElement, DRAGGING_MODIFIER)
-    }
-  }
-
-  /**
-   * The ability to be placed at Polygon
-   */
-  get notAllowed() { return this.#state.notAllowed }
-  set notAllowed(value: boolean) {
-    this.#state.notAllowed = value
-
-    if (value) {
-      addElementClassModification(this.#boundElement, NOT_ALLOWED_MODIFIER)
-    } else {
-      removeElementClassModification(this.#boundElement, NOT_ALLOWED_MODIFIER)
-    }
-  }
-
-  /**
-   * The state of being selected
-   */
-  get selected() { return this.#state.selected }
-  set selected(value: boolean) {
-    this.#state.selected = value
-
-    if (value) {
-      addElementClassModification(this.#boundElement, SELECTED_MODIFIER)
-    } else {
-      removeElementClassModification(this.#boundElement, SELECTED_MODIFIER)
-    }
-  }
-
-  get rect(): DOMRect {
-    return this.#boundElement.getBoundingClientRect()
-  }
-
-  constructor(boundElement: unknown) {
-    if (!(boundElement instanceof HTMLElement)) {
-      throw new Error("boundElement must be an instance of HTMLElement")
-    }
-
-    this.#boundElement = boundElement
-    this.transform = new CSSTransform(this.#boundElement)
+    decorateClassModifierToggle(this, "state", this.boundElement)
 
     const mutationCallback = (_mutations: MutationRecord[], _observer: MutationObserver) => {
       Boundary.checkIfObjectAllowed(this)
     }
     const mutationObserver = new MutationObserver(mutationCallback)
-    mutationObserver.observe(boundElement, {
+    mutationObserver.observe(this.boundElement, {
       attributes: true,
       attributeFilter: ["style"],
     })
@@ -111,7 +91,6 @@ class PolygonObject {
           repeating-linear-gradient(transparent 0 23px, rgba(0, 0, 0, 0.25) 23px 30px)
         `
       }
-      this.#clumpedPositionStep = true
     })
 
     window.addEventListener("keyup", event => {
@@ -123,7 +102,6 @@ class PolygonObject {
       if (polygon instanceof HTMLElement) {
         polygon.style.backgroundImage = ""
       }
-      this.#clumpedPositionStep = false
     })
   }
 
@@ -146,18 +124,10 @@ class PolygonObject {
     return true
   }
 
-  get boundElement() {
-    return this.#boundElement
-  }
-
   get position(): Vector2 {
     return new Vector2(this.rect.x, this.rect.y)
   }
   set position(vector: Vector2) {
-    // function normalize(value: number, by: number): number {
-    //   return value - (value % by)
-    // }
-
     let x = vector.x - Polygon.rect.left - Boundary.offset.x
     let y = vector.y - Polygon.rect.top - Boundary.offset.y
 
@@ -170,15 +140,10 @@ class PolygonObject {
     const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth)
     const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth)
 
+    // console.log(paddingX)
 
     x -= (paddingX / 2) + (borderX / 2)
     y -= (paddingY / 2) + (borderY / 2)
-
-
-    // if (this.#clumpedPositionStep && !this.#state.notAllowed) {
-    //   x = normalize(x, 30)
-    //   y = normalize(y, 30)
-    // }
 
     this.transform.functions.translateX = new CSSUnit(x, "px")
     this.transform.functions.translateY = new CSSUnit(y, "px")
@@ -194,17 +159,10 @@ class PolygonObject {
       this.transform.origin = [new CSSUnit(origin.x, "px"), new CSSUnit(origin.y, "px")]
     }
     this.transform.functions.rotateZ = new CSSUnit(this.rotated ? 90 : 0, "deg")
-
-
-    // setTimeout(() => {
-    //   if (this.notAllowed) {
-    //     this.rotate(origin)
-    //   }
-    // })
   }
 
   clone(): PolygonObject {
-    const clone = new PolygonObject(this.#boundElement.cloneNode(true) as HTMLElement)
+    const clone = new PolygonObject(this.boundElement.cloneNode(true) as HTMLElement)
     clone.position = this.position
     clone.rotated = this.rotated
     return clone
@@ -252,7 +210,7 @@ class PolygonObject {
       return
     }
 
-    this.#boundElement.addEventListener(type, eventFunction, options)
+    this.boundElement.addEventListener(type, eventFunction, options)
   }
 
   /**
@@ -271,6 +229,6 @@ class PolygonObject {
       return
     }
 
-    this.#boundElement.removeEventListener(type, eventFunction)
+    this.boundElement.removeEventListener(type, eventFunction)
   }
 }

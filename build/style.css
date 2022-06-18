@@ -51,6 +51,8 @@ body {
   border-radius: 0.25em;
 
   flex-shrink: 0;
+
+  touch-action: none;
 }
 
 .polygon-constructor__site {
@@ -75,6 +77,8 @@ body {
   /* max-width: 10em; */
   padding: 1em;
   background: rebeccapurple;
+
+  touch-action: none;
 }
 
 .polygon-constructor__object {
@@ -90,6 +94,7 @@ body {
   transition: 250ms ease background-color, 250ms ease opacity;
 
   cursor: grab;
+  touch-action: none;
 }
 
 .polygon-constructor__object--draggable {

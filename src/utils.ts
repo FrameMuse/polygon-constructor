@@ -17,19 +17,27 @@ function removeElementClassModification(element: HTMLElement, modifier: string) 
   element.classList.remove(baseClass + CLASS_SPLITTER + modifier)
 }
 
-// function modifyTransform(previousTransform: string, modifier: string, value: string): string {
-//   const transform = previousTransform.split(' ')
-//   const index = transform.findIndex(t => t.startsWith(modifier))
+function toggleElementClassModification(element: HTMLElement, modifier: string, force?: boolean) {
+  const baseClass = element.classList[0]
 
-//   if (index === -1) {
-//     transform.push(modifier + value)
-//   } else {
-//     transform[index] = modifier + value
-//   }
+  if (force === true) {
+    element.classList.add(baseClass + CLASS_SPLITTER + modifier)
+  } else {
+    element.classList.remove(baseClass + CLASS_SPLITTER + modifier)
+  }
+}
 
-//   return transform.join(' ')
-// }
+function isDictionary(object: unknown): object is Record<keyof never, unknown> {
+  return object instanceof Object && object.constructor === Object
+}
 
+function camelToDash(string: string | symbol): string {
+  string = string.toString()
 
+  if (string != string.toLowerCase()) {
+    string = string.replace(/[A-Z]/g, match => "-" + match.toLowerCase())
+  }
 
+  return string
+}
 

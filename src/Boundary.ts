@@ -29,7 +29,7 @@ class Boundary {
     if (this.#draggingObject === polygonObject) return
 
     if (this.#draggingObject != null && polygonObject == null) {
-      this.#draggingObject.dragging = false
+      this.#draggingObject.state.dragging = false
       this.#draggingObject = null
 
       return
@@ -37,7 +37,7 @@ class Boundary {
 
     if (polygonObject != null) {
       this.#draggingObject = polygonObject
-      this.#draggingObject.dragging = true
+      this.#draggingObject.state.dragging = true
 
       return
     }
@@ -58,10 +58,10 @@ class Boundary {
     if (this.#selectedObject === polygonObject) return
 
     if (this.#selectedObject) {
-      this.#selectedObject.selected = false
+      this.#selectedObject.state.selected = false
     }
 
-    polygonObject.selected = true
+    polygonObject.state.selected = true
 
     this.#selectedObject = polygonObject
 
@@ -95,16 +95,16 @@ class Boundary {
    */
   static checkIfObjectAllowed(polygonObject: PolygonObject): boolean {
     if (!Polygon.contains(polygonObject)) {
-      polygonObject.notAllowed = true
+      polygonObject.state.notAllowed = true
       return false
     }
 
     if (Polygon.intersectsOtherObjects(polygonObject)) {
-      polygonObject.notAllowed = true
+      polygonObject.state.notAllowed = true
       return false
     }
 
-    polygonObject.notAllowed = false
+    polygonObject.state.notAllowed = false
     return true
   }
 
