@@ -221,6 +221,7 @@ body {
 
 .polygon-constructor-sidebar {
   display: grid;
+  align-content: flex-start;
   /* gap: 1em; */
 }
 

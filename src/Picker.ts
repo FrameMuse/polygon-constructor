@@ -17,14 +17,15 @@ class Picker {
     this.#boundElement = element
   }
 
-  static createComponent(options: PickerComponentOptions) {
-    if (options.id == null) options.id = this.#components.size + 1
-
-    const component = new PickerComponent(options)
-    component.polygonObject.boundElement.addEventListener("pointerdown", event => {
+  static addComponent(block: PolygonBlock) {
+    const component = new PickerComponent(block)
+    component.polygonObject.on("pointerdown", (_, event) => {
       if (component.usedAmount >= component.maxAmount) return
 
-      const clonedPolygonObject = clonePolygonObject(component.polygonObject)
+      const clonedPolygonObject = component.polygonObject.clone()
+
+      clonedPolygonObject.state.draggable = true
+      clonedPolygonObject.on("pointerdown", startDragging)
 
       clonedPolygonObject.onSettled(() => {
         component.usedAmount++
@@ -34,12 +35,13 @@ class Picker {
       })
 
       startDragging(clonedPolygonObject, event)
+      // As soon as the polygon object position is changed, it will be added to scene
+      // setTimeout(() => {
       Polygon.settle(clonedPolygonObject)
+      // })
     })
 
     this.#components.add(component)
-    this.maxUnitsT[options.id] = options.maxAmount || Infinity
-
     this.#render()
   }
 
@@ -55,15 +57,6 @@ class Picker {
       this.#boundElement.append(component.element)
     }
   }
-}
-
-interface PickerComponentOptions {
-  id?: keyof never
-  title: string
-  className: string
-  modifiers?: string[]
-  // image: string
-  maxAmount: number
 }
 
 class PickerComponent {
@@ -86,16 +79,16 @@ class PickerComponent {
     return this.#usedAmount
   }
 
-  constructor(options: PickerComponentOptions) {
-    this.maxAmount = options.maxAmount
+  constructor(block: PolygonBlock) {
+    this.maxAmount = block.amount
 
     this.#element = composePickerBlockElement()
-    this.#polygonObject = composePolygonObject(options)
+    this.#polygonObject = composePolygonObject(block)
 
-    this.#element.append(composePickerBlockTitleElement(options.title))
+    this.#element.append(composePickerBlockTitleElement(block.name))
     this.#element.append(this.#polygonObject.boundElement)
 
-    this.#amountElement = composePickerBlockAmountElement(options.maxAmount)
+    this.#amountElement = composePickerBlockAmountElement(block.amount)
     this.#element.append(this.#amountElement)
   }
 
@@ -115,18 +108,15 @@ function composePickerBlockElement() {
   return pickerElement
 }
 
-function composePolygonObject(options: PickerComponentOptions): PolygonObject {
-  if (options.id == null) options.id = -1
+function composePolygonObject(block: PolygonBlock): PolygonObject {
+  if (block.id == null) block.id = -1
 
   const element = document.createElement("div")
-  element.appendChild(composeImageElement("elements/" + options.id.toString() + ".png"))
-  element.classList.add(options.className)
-  element.classList.add(...(options.modifiers || []).map(modifier => options.className + CLASS_SPLITTER + modifier))
+  element.appendChild(composeImageElement("elements/" + block.id.toString() + ".png"))
+  element.classList.add(DEFAULT_CLASS_NAME)
 
-  const polygonObject = new PolygonObject(element)
-  polygonObject.id = options.id
 
-  return polygonObject
+  return new PolygonObject(element, block)
 }
 
 function composeImageElement(src: string) {

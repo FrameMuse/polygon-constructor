@@ -59,6 +59,56 @@ class Vector2 {
 // Math.clamp = function (x: number, min: number, max: number) {
 //   return Math.min(Math.max(x, min), max);
 // }
+class BoundElement {
+    #boundElement;
+    #transform;
+    constructor(element) {
+        if (!(element instanceof HTMLElement)) {
+            throw new Error("boundElement must be an instance of HTMLElement");
+        }
+        this.#boundElement = element;
+        this.#transform = new CSSTransform(element);
+    }
+    get rect() {
+        if (this.#boundElement === null) {
+            throw new Error("boundElement is not set");
+        }
+        return this.#boundElement.getBoundingClientRect();
+    }
+    get boundElement() {
+        if (this.#boundElement === null) {
+            throw new Error("boundElement is not set");
+        }
+        return this.#boundElement;
+    }
+    get transform() {
+        return this.#transform;
+    }
+}
+class BoundElementStatic {
+    static #boundElement = null;
+    static bindElement(element) {
+        if (!(element instanceof HTMLElement)) {
+            throw new Error("boundElement must be an instance of HTMLElement");
+        }
+        if (this.#boundElement != null) {
+            throw new Error(this.name + " boundElement has already been set");
+        }
+        this.#boundElement = element;
+    }
+    static get rect() {
+        if (this.#boundElement === null) {
+            throw new Error("boundElement is not set");
+        }
+        return this.#boundElement.getBoundingClientRect();
+    }
+    static get boundElement() {
+        if (this.#boundElement === null) {
+            throw new Error("boundElement is not set");
+        }
+        return this.#boundElement;
+    }
+}
 class Boundary {
     static #boundElement = null;
     static bindElement(element) {
@@ -85,13 +135,13 @@ class Boundary {
         if (this.#draggingObject === polygonObject)
             return;
         if (this.#draggingObject != null && polygonObject == null) {
-            this.#draggingObject.dragging = false;
+            this.#draggingObject.state.dragging = false;
             this.#draggingObject = null;
             return;
         }
         if (polygonObject != null) {
             this.#draggingObject = polygonObject;
-            this.#draggingObject.dragging = true;
+            this.#draggingObject.state.dragging = true;
             return;
         }
         throw new Error("Something wrong");
@@ -109,13 +159,11 @@ class Boundary {
         if (this.#selectedObject === polygonObject)
             return;
         if (this.#selectedObject) {
-            this.#selectedObject.selected = false;
+            this.#selectedObject.state.selected = false;
         }
-        polygonObject.selected = true;
+        polygonObject.state.selected = true;
         this.#selectedObject = polygonObject;
-        const componentName = polygonObject.id ? componentNames[polygonObject.id] : "unknown";
-        const objectsByGroups = Polygon.getObjectsByGroups();
-        resultTitle.innerHTML = componentName;
+        resultTitle.innerHTML = polygonObject.block.name;
         const rotateButton = document.createElement("button");
         rotateButton.type = "button";
         rotateButton.textContent = "Rotate";
@@ -124,10 +172,6 @@ class Boundary {
             polygonObject.rotate(origin);
         });
         resultTitle.append(rotateButton);
-        resultText.innerHTML = `Использованные блоки => <br>${Object.keys(objectsByGroups).map(key => {
-            const objectsGroup = objectsByGroups[key];
-            return `"${componentNames[key]}": ${objectsGroup?.length || "Bug detected"}`;
-        }).join(",<br>")}`;
     }
     static dropNotAllowed = false;
     /**
@@ -138,14 +182,14 @@ class Boundary {
      */
     static checkIfObjectAllowed(polygonObject) {
         if (!Polygon.contains(polygonObject)) {
-            polygonObject.notAllowed = true;
+            polygonObject.state.notAllowed = true;
             return false;
         }
         if (Polygon.intersectsOtherObjects(polygonObject)) {
-            polygonObject.notAllowed = true;
+            polygonObject.state.notAllowed = true;
             return false;
         }
-        polygonObject.notAllowed = false;
+        polygonObject.state.notAllowed = false;
         return true;
     }
     static checkIfObjectsAllowed(polygonObjects) {
@@ -173,24 +217,30 @@ function observeObject(target, property, callbacks) {
     target[property] = new Proxy(value, {
         set(target, key, value, receiver) {
             // Call immediately after setting the property
-            setTimeout(() => {
-                for (const callback of callbacks)
-                    callback();
-            });
-            return Reflect.set(target, key, value, receiver);
+            const result = Reflect.set(target, key, value, receiver);
+            if (!result)
+                return false;
+            for (const callback of callbacks)
+                callback();
+            return true;
         },
     });
 }
 function observeProperty(target, property, callbacks) {
     const value = target[property];
     target[property] = new Proxy({ current: value }, {
+        // get(target) {
+        //   return target.current
+        // },
         set(target, _key, value, receiver) {
+            console.log(target);
             // Call immediately after setting the property
-            setTimeout(() => {
-                for (const callback of callbacks)
-                    callback();
-            });
-            return Reflect.set(target, "current", value, receiver);
+            const result = Reflect.set(target, "current", value, receiver);
+            if (!result)
+                return false;
+            for (const callback of callbacks)
+                callback();
+            return true;
         },
     });
 }
@@ -239,6 +289,7 @@ class CSSTransform {
         return result.join(" ");
     }
     stringifyOrigin() {
+        // console.log(this.origin)
         return this.origin[0].toString() + " " + this.origin[1].toString();
     }
     static parse(transform) {
@@ -299,14 +350,14 @@ class Picker {
         }
         this.#boundElement = element;
     }
-    static createComponent(options) {
-        if (options.id == null)
-            options.id = this.#components.size + 1;
-        const component = new PickerComponent(options);
-        component.polygonObject.boundElement.addEventListener("pointerdown", event => {
+    static addComponent(block) {
+        const component = new PickerComponent(block);
+        component.polygonObject.on("pointerdown", (_, event) => {
             if (component.usedAmount >= component.maxAmount)
                 return;
-            const clonedPolygonObject = clonePolygonObject(component.polygonObject);
+            const clonedPolygonObject = component.polygonObject.clone();
+            clonedPolygonObject.state.draggable = true;
+            clonedPolygonObject.on("pointerdown", startDragging);
             clonedPolygonObject.onSettled(() => {
                 component.usedAmount++;
             });
@@ -314,10 +365,12 @@ class Picker {
                 component.usedAmount--;
             });
             startDragging(clonedPolygonObject, event);
+            // As soon as the polygon object position is changed, it will be added to scene
+            // setTimeout(() => {
             Polygon.settle(clonedPolygonObject);
+            // })
         });
         this.#components.add(component);
-        this.maxUnitsT[options.id] = options.maxAmount || Infinity;
         this.#render();
     }
     static #render() {
@@ -342,23 +395,18 @@ class PickerComponent {
             return;
         this.#usedAmount = value;
         this.#amountElement.textContent = "x" + String(this.maxAmount - value);
-        if (value >= this.maxAmount) {
-            addElementClassModification(this.#element, "disabled");
-        }
-        else {
-            removeElementClassModification(this.#element, "disabled");
-        }
+        toggleElementClassModification(this.#element, "disabled", value >= this.maxAmount);
     }
     get usedAmount() {
         return this.#usedAmount;
     }
-    constructor(options) {
-        this.maxAmount = options.maxAmount;
+    constructor(block) {
+        this.maxAmount = block.amount;
         this.#element = composePickerBlockElement();
-        this.#polygonObject = composePolygonObject(options);
-        this.#element.append(composePickerBlockTitleElement(options.title));
+        this.#polygonObject = composePolygonObject(block);
+        this.#element.append(composePickerBlockTitleElement(block.name));
         this.#element.append(this.#polygonObject.boundElement);
-        this.#amountElement = composePickerBlockAmountElement(options.maxAmount);
+        this.#amountElement = composePickerBlockAmountElement(block.amount);
         this.#element.append(this.#amountElement);
     }
     get element() {
@@ -373,16 +421,13 @@ function composePickerBlockElement() {
     pickerElement.className = PICKET_BLOCK_CLASS;
     return pickerElement;
 }
-function composePolygonObject(options) {
-    if (options.id == null)
-        options.id = -1;
+function composePolygonObject(block) {
+    if (block.id == null)
+        block.id = -1;
     const element = document.createElement("div");
-    element.appendChild(composeImageElement("elements/" + options.id.toString() + ".png"));
-    element.classList.add(options.className);
-    element.classList.add(...(options.modifiers || []).map(modifier => options.className + CLASS_SPLITTER + modifier));
-    const polygonObject = new PolygonObject(element);
-    polygonObject.id = options.id;
-    return polygonObject;
+    element.appendChild(composeImageElement("elements/" + block.id.toString() + ".png"));
+    element.classList.add(DEFAULT_CLASS_NAME);
+    return new PolygonObject(element, block);
 }
 function composeImageElement(src) {
     const element = document.createElement("img");
@@ -423,12 +468,12 @@ class Polygon {
         return this.#boundElement;
     }
     static settle(polygonObject) {
-        polygonObject.settle();
+        polygonObject.settled();
         this.#objects.add(polygonObject);
         this.#render();
     }
     static unsettle(polygonObject) {
-        polygonObject.unsettle();
+        polygonObject.unsettled();
         this.#objects.delete(polygonObject);
         this.#render();
     }
@@ -476,135 +521,78 @@ class Polygon {
             this.#boundElement.append(polygonElement);
         }
     }
-    static getObjectsByGroups() {
-        const result = {};
-        for (const polygonObject of this.#objects) {
-            if (polygonObject.id == null) {
-                console.warn("Some of the objects has no id, it will be skipped.", polygonObject);
-                continue;
-            }
-            // result[polygonObject.id]?.push(polygonObject) || (result[polygonObject.id] = [polygonObject])
-            result[polygonObject.id] = [...result[polygonObject.id] || [], polygonObject];
-        }
-        return result;
-    }
     static get objectsCount() {
         return this.#objects.size;
     }
 }
-const DRAGGABLE_MODIFIER = "draggable";
-const DRAGGING_MODIFIER = "dragging";
-const NOT_ALLOWED_MODIFIER = "not-allowed";
-const SELECTED_MODIFIER = "selected";
-class PolygonObject {
-    id;
-    #clumpedPositionStep = false;
-    #boundElement;
-    #state = {
+function createClassModifierToggleProxy(value, onElement) {
+    if (!isDictionary(value)) {
+        throw new Error("value is not a dictionary");
+    }
+    if (!Object.values(value).every(value => typeof value === "boolean")) {
+        throw new Error("value must be a dictionary of booleans");
+    }
+    const stateModifiers = Object.keys(value).reduce((result, nextKey) => ({ ...result, [nextKey]: camelToDash(nextKey) }), {});
+    const proxy = new Proxy(value, {
+        set(target, key, value) {
+            // console.log(target, key, value)
+            const stateValue = target[key];
+            if (stateValue === value)
+                return true;
+            target[key] = value;
+            toggleElementClassModification(onElement, stateModifiers[key], value);
+            return true;
+        }
+    });
+    return proxy;
+}
+function decorateClassModifierToggle(target, propertyNameOfState, onElement) {
+    let proxy = createClassModifierToggleProxy(target[propertyNameOfState], onElement);
+    Object.defineProperty(target, propertyNameOfState, {
+        get() {
+            return proxy;
+        },
+        set(value) {
+            proxy = createClassModifierToggleProxy(value, onElement);
+        },
+    });
+}
+function observeStyleChange(target, mutationCallback) {
+    const mutationObserver = new MutationObserver(mutationCallback);
+    mutationObserver.observe(target, {
+        attributes: true,
+        attributeFilter: ["style"],
+    });
+}
+class PolygonObject extends BoundElement {
+    block;
+    state = {
+        /**
+          * Whether the polygonObject can be dragged
+          */
         draggable: false,
+        /**
+          * Whether the polygonObject is being dragged
+          */
         dragging: false,
+        /**
+         * Whether the polygonObject is not allowed to be dragged
+         */
         notAllowed: false,
+        /**
+         * Whether the polygonObject is selected by pointer
+         */
         selected: false,
     };
-    transform;
-    /**
-     * The ability of to be dragged
-     */
-    get draggable() { return this.#state.draggable; }
-    set draggable(value) {
-        this.#state.draggable = value;
-        if (value) {
-            addElementClassModification(this.#boundElement, DRAGGABLE_MODIFIER);
-        }
-        else {
-            removeElementClassModification(this.#boundElement, DRAGGABLE_MODIFIER);
-        }
-    }
-    /**
-     * The state of being dragged
-     */
-    get dragging() { return this.#state.dragging; }
-    set dragging(value) {
-        this.#state.dragging = value;
-        if (value) {
-            addElementClassModification(this.#boundElement, DRAGGING_MODIFIER);
-        }
-        else {
-            removeElementClassModification(this.#boundElement, DRAGGING_MODIFIER);
-        }
-    }
-    /**
-     * The ability to be placed at Polygon
-     */
-    get notAllowed() { return this.#state.notAllowed; }
-    set notAllowed(value) {
-        this.#state.notAllowed = value;
-        if (value) {
-            addElementClassModification(this.#boundElement, NOT_ALLOWED_MODIFIER);
-        }
-        else {
-            removeElementClassModification(this.#boundElement, NOT_ALLOWED_MODIFIER);
-        }
-    }
-    /**
-     * The state of being selected
-     */
-    get selected() { return this.#state.selected; }
-    set selected(value) {
-        this.#state.selected = value;
-        if (value) {
-            addElementClassModification(this.#boundElement, SELECTED_MODIFIER);
-        }
-        else {
-            removeElementClassModification(this.#boundElement, SELECTED_MODIFIER);
-        }
-    }
-    get rect() {
-        return this.#boundElement.getBoundingClientRect();
-    }
-    constructor(boundElement) {
-        if (!(boundElement instanceof HTMLElement)) {
-            throw new Error("boundElement must be an instance of HTMLElement");
-        }
-        this.#boundElement = boundElement;
-        this.transform = new CSSTransform(this.#boundElement);
-        const mutationCallback = (_mutations, _observer) => {
+    constructor(element, block) {
+        super(element);
+        this.block = block;
+        decorateClassModifierToggle(this, "state", this.boundElement);
+        observeStyleChange(this.boundElement, () => {
             Boundary.checkIfObjectAllowed(this);
-        };
-        const mutationObserver = new MutationObserver(mutationCallback);
-        mutationObserver.observe(boundElement, {
-            attributes: true,
-            attributeFilter: ["style"],
         });
         this.on("contextmenu", (_, event) => {
             event.preventDefault();
-        });
-        window.addEventListener("keydown", event => {
-            if (event.altKey)
-                return;
-            if (event.ctrlKey)
-                return;
-            if (!event.shiftKey || event.key.toLowerCase() !== "shift")
-                return;
-            event.preventDefault();
-            // console.log(event)
-            if (polygon instanceof HTMLElement) {
-                polygon.style.backgroundImage = `
-          repeating-linear-gradient(90deg, transparent 0 23px, rgba(0, 0, 0, 0.25) 23px 30px),
-          repeating-linear-gradient(transparent 0 23px, rgba(0, 0, 0, 0.25) 23px 30px)
-        `;
-            }
-            this.#clumpedPositionStep = true;
-        });
-        window.addEventListener("keyup", event => {
-            // if (event.altKey) return
-            // if (event.ctrlKey) return
-            // if (!event.shiftKey || event.key.toLowerCase() !== "shift") return
-            event.preventDefault();
-            if (polygon instanceof HTMLElement) {
-                polygon.style.backgroundImage = "";
-            }
-            this.#clumpedPositionStep = false;
         });
     }
     /**
@@ -626,16 +614,10 @@ class PolygonObject {
             return false;
         return true;
     }
-    get boundElement() {
-        return this.#boundElement;
-    }
     get position() {
         return new Vector2(this.rect.x, this.rect.y);
     }
     set position(vector) {
-        // function normalize(value: number, by: number): number {
-        //   return value - (value % by)
-        // }
         let x = vector.x - Polygon.rect.left - Boundary.offset.x;
         let y = vector.y - Polygon.rect.top - Boundary.offset.y;
         const computedStyle = getComputedStyle(Polygon.boundElement);
@@ -645,10 +627,6 @@ class PolygonObject {
         const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
         x -= (paddingX / 2) + (borderX / 2);
         y -= (paddingY / 2) + (borderY / 2);
-        // if (this.#clumpedPositionStep && !this.#state.notAllowed) {
-        //   x = normalize(x, 30)
-        //   y = normalize(y, 30)
-        // }
         this.transform.functions.translateX = new CSSUnit(x, "px");
         this.transform.functions.translateY = new CSSUnit(y, "px");
     }
@@ -660,16 +638,11 @@ class PolygonObject {
             this.transform.origin = [new CSSUnit(origin.x, "px"), new CSSUnit(origin.y, "px")];
         }
         this.transform.functions.rotateZ = new CSSUnit(this.rotated ? 90 : 0, "deg");
-        // setTimeout(() => {
-        //   if (this.notAllowed) {
-        //     this.rotate(origin)
-        //   }
-        // })
     }
     clone() {
-        const clone = new PolygonObject(this.#boundElement.cloneNode(true));
-        clone.position = this.position;
-        clone.rotated = this.rotated;
+        const clone = new PolygonObject(this.boundElement.cloneNode(true), this.block);
+        // clone.position = this.position
+        clone.state = { ...this.state };
         return clone;
     }
     #onSettledCallbacks = [];
@@ -679,8 +652,11 @@ class PolygonObject {
     /**
      * Says to polygonObject that it is settled
      */
-    settle() {
+    settled() {
         this.#onSettledCallbacks.forEach(callback => callback());
+    }
+    settle() {
+        Polygon.settle(this);
     }
     #onUnsettledCallbacks = [];
     onUnsettled(callback) {
@@ -689,8 +665,11 @@ class PolygonObject {
     /**
      * Says to polygonObject that it is unsettled
      */
-    unsettle() {
+    unsettled() {
         this.#onUnsettledCallbacks.forEach(callback => callback());
+    }
+    unsettle() {
+        Polygon.unsettle(this);
     }
     #listeners = new Map;
     /**
@@ -708,7 +687,7 @@ class PolygonObject {
             document.addEventListener(type, eventFunction, options);
             return;
         }
-        this.#boundElement.addEventListener(type, eventFunction, options);
+        this.boundElement.addEventListener(type, eventFunction, options);
     }
     /**
      * Removes a function that were passed to `on`.
@@ -725,7 +704,7 @@ class PolygonObject {
             document.removeEventListener(type, eventFunction);
             return;
         }
-        this.#boundElement.removeEventListener(type, eventFunction);
+        this.boundElement.removeEventListener(type, eventFunction);
     }
 }
 const resultTitle = document.getElementById("result-title");
@@ -799,7 +778,7 @@ function startDragging(polygonObject, event) {
 }
 function stopDragging(polygonObject, event) {
     event.preventDefault();
-    if (polygonObject.notAllowed) {
+    if (polygonObject.state.notAllowed) {
         Polygon.unsettle(polygonObject);
     }
     else {
@@ -807,34 +786,15 @@ function stopDragging(polygonObject, event) {
     }
     Boundary.draggingObject = null;
 }
-function clonePolygonObject(polygonObject) {
-    const clonedElement = polygonObject.boundElement.cloneNode(true);
-    const clonedPolygonObject = new PolygonObject(clonedElement);
-    clonedPolygonObject.id = polygonObject.id;
-    clonedPolygonObject.draggable = true;
-    clonedPolygonObject.on("pointerdown", startDragging);
-    return clonedPolygonObject;
-}
 const DEFAULT_CLASS_NAME = "polygon-constructor__object";
-Picker.createComponent({ title: "asd1", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd32", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd3", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd4", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd5", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd6", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd7", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd8", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd9", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd1123", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd123123", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd3123213", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd31231", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd312321", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd23123", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
-Picker.createComponent({ title: "asd3123", className: DEFAULT_CLASS_NAME, maxAmount: 2 });
+Picker.addComponent({
+    id: 1,
+    amount: 6,
+    width: 5,
+    height: 5,
+    image: "https://picsum.photos/200/300",
+    name: "Элемент стены, цвет белый 100×250",
+});
 function isElementClassModifiedBy(element, modifier) {
     const baseClass = element.classList[0];
     return element.classList.contains(baseClass + CLASS_SPLITTER + modifier);
@@ -851,13 +811,22 @@ function removeElementClassModification(element, modifier) {
     const baseClass = element.classList[0];
     element.classList.remove(baseClass + CLASS_SPLITTER + modifier);
 }
-// function modifyTransform(previousTransform: string, modifier: string, value: string): string {
-//   const transform = previousTransform.split(' ')
-//   const index = transform.findIndex(t => t.startsWith(modifier))
-//   if (index === -1) {
-//     transform.push(modifier + value)
-//   } else {
-//     transform[index] = modifier + value
-//   }
-//   return transform.join(' ')
-// }
+function toggleElementClassModification(element, modifier, force) {
+    const baseClass = element.classList[0];
+    if (force === true) {
+        element.classList.add(baseClass + CLASS_SPLITTER + modifier);
+    }
+    else {
+        element.classList.remove(baseClass + CLASS_SPLITTER + modifier);
+    }
+}
+function isDictionary(object) {
+    return object instanceof Object && object.constructor === Object;
+}
+function camelToDash(string) {
+    string = string.toString();
+    if (string != string.toLowerCase()) {
+        string = string.replace(/[A-Z]/g, match => "-" + match.toLowerCase());
+    }
+    return string;
+}

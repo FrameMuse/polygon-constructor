@@ -27,7 +27,7 @@ class Polygon {
   }
 
   static settle(polygonObject: PolygonObject) {
-    polygonObject.settle()
+    polygonObject.settled()
 
     this.#objects.add(polygonObject)
 
@@ -35,7 +35,7 @@ class Polygon {
   }
 
   static unsettle(polygonObject: PolygonObject) {
-    polygonObject.unsettle()
+    polygonObject.unsettled()
 
     this.#objects.delete(polygonObject)
 
@@ -93,21 +93,6 @@ class Polygon {
 
       this.#boundElement.append(polygonElement)
     }
-  }
-
-  static getObjectsByGroups() {
-    const result: Record<keyof never, PolygonObject[] | undefined> = {}
-    for (const polygonObject of this.#objects) {
-      if (polygonObject.id == null) {
-        console.warn("Some of the objects has no id, it will be skipped.", polygonObject)
-        continue
-      }
-
-      // result[polygonObject.id]?.push(polygonObject) || (result[polygonObject.id] = [polygonObject])
-      result[polygonObject.id] = [...result[polygonObject.id] || [], polygonObject]
-    }
-
-    return result
   }
 
   static get objectsCount(): number {

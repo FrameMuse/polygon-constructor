@@ -71,17 +71,7 @@ class Vector2 {
 }
 
 
-
-// const vector1 = new Vector2(1, 2)
-// const vector2 = new Vector2(3, 4)
-
-// vector1.plus(vector1)
-// vector1.times(1, 16)
-
-// console.log(vector1.toString())
-
-
-interface Block {
+interface PolygonBlock {
   id: number
 
   name: string
@@ -96,11 +86,11 @@ interface Area {
   width: number // cm
   height: number // cm
 
-  blocks: Block[]
+  blocks: PolygonBlock[]
 }
 
 
-interface BlockOutput {
+interface PolygonBlockOutput {
   id: number
 
   x: number // cm

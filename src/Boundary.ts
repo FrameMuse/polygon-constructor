@@ -65,10 +65,7 @@ class Boundary {
 
     this.#selectedObject = polygonObject
 
-    const componentName = polygonObject.id ? componentNames[polygonObject.id] : "unknown"
-    const objectsByGroups = Polygon.getObjectsByGroups()
-
-    resultTitle.innerHTML = componentName
+    resultTitle.innerHTML = polygonObject.block.name
     const rotateButton = document.createElement("button")
     rotateButton.type = "button"
     rotateButton.textContent = "Rotate"
@@ -77,12 +74,6 @@ class Boundary {
       polygonObject.rotate(origin)
     })
     resultTitle.append(rotateButton)
-
-    resultText.innerHTML = `Использованные блоки => <br>${Object.keys(objectsByGroups).map(key => {
-      const objectsGroup = objectsByGroups[key]
-
-      return `"${componentNames[key]}": ${objectsGroup?.length || "Bug detected"}`
-    }).join(",<br>")}`
   }
 
   static dropNotAllowed: boolean = false

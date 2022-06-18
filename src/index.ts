@@ -91,35 +91,13 @@ function stopDragging(polygonObject: PolygonObject, event: PointerEvent) {
   Boundary.draggingObject = null
 }
 
-function clonePolygonObject(polygonObject: PolygonObject): PolygonObject {
-  const clonedElement = polygonObject.boundElement.cloneNode(true) as HTMLDivElement
-  const clonedPolygonObject = new PolygonObject(clonedElement)
-
-  clonedPolygonObject.id = polygonObject.id
-  clonedPolygonObject.state.draggable = true
-  clonedPolygonObject.on("pointerdown", startDragging)
-
-  return clonedPolygonObject
-}
-
 const DEFAULT_CLASS_NAME = "polygon-constructor__object"
 
-Picker.createComponent({ title: "asd1", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd32", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd3", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd4", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd5", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd6", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd7", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd8", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd9", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd1123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd123123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd3123213", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd31231", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd312321", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd23123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd12312", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
-Picker.createComponent({ title: "asd3123", className: DEFAULT_CLASS_NAME, maxAmount: 2 })
+Picker.addComponent({
+  id: 1,
+  amount: 6,
+  width: 5, // cm
+  height: 5, // cm
+  image: "https://picsum.photos/200/300",
+  name: "Элемент стены, цвет белый 100×250",
+})
