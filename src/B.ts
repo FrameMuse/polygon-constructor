@@ -26,6 +26,18 @@ abstract class BoundElement {
     return this.#boundElement.getBoundingClientRect()
   }
 
+  get size(): Vector2 {
+    const rect = this.rect
+
+    return new Vector2(rect.width, rect.height)
+  }
+
+  get offset(): Vector2 {
+    const rect = this.rect
+
+    return new Vector2(rect.left, rect.top)
+  }
+
   get boundElement(): HTMLElement {
     if (this.#boundElement === null) {
       throw new Error("boundElement is not set")

@@ -46,9 +46,10 @@ body {
 
   width: 50em;
   height: 25em;
-  /* background: #78a793; */
+  background: url("./grid.svg");
   border: 1px solid #ccc;
   border-radius: 0.25em;
+  overflow: hidden;
 
   flex-shrink: 0;
 
@@ -236,6 +237,9 @@ body {
   /* padding: 0.75em 1em; */
   border: 1px solid #ccc;
   border-radius: 0 0 0.25em 0.25em;
+
+  max-height: 75vh;
+  overflow: auto;
 }
 
 .polygon-constructor-sidebar-block {
@@ -293,8 +297,9 @@ body {
 .polygon-constructor-info__title {
   padding: 0.5em;
   border: 1px solid #ccc;
-  border-bottom: unset;
-  border-radius: 0.25em 0.25em 0 0;
+  /* border-bottom: unset; */
+  /* border-radius: 0.25em 0.25em 0 0; */
+  border-radius: 0.25em;
 }
 
 .polygon-constructor-info__text {
@@ -302,4 +307,21 @@ body {
   margin: unset;
   border: 1px solid #ccc;
   border-radius: 0 0 0.25em 0.25em;
+}
+
+
+@media screen and (max-width: 1150px) {
+  .polygon-constructor__body {
+    display: grid;
+    gap: 2.5em;
+  }
+
+  .polygon-constructor__polygon {
+    width: 100%;
+  }
+
+  .polygon-constructor-sidebar__container {
+    display: flex;
+
+  }
 }

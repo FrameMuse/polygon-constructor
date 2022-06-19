@@ -95,7 +95,44 @@ class Polygon {
     }
   }
 
+  static get objects(): PolygonObject[] {
+    return [...this.#objects]
+  }
+
   static get objectsCount(): number {
     return this.#objects.size
+  }
+
+  static clear() {
+    this.#objects.clear()
+
+    this.#render()
+  }
+
+
+  /**
+   * 
+   * @param absoluteVector Vector2 in absolute coordinates (not relative to Polygon, but to document)
+   * @returns Vector2 in relative coordinates to Polygon
+   */
+  static fromAbsoluteToRelative(absoluteVector: Vector2): Vector2 {
+    // console.log(absoluteVector)
+    const relativeVector = absoluteVector.clone()
+
+    // Removing top, left of `Polygon` and `Boundary.offset`
+    relativeVector.minus(Polygon.rect.left, Polygon.rect.top)
+    relativeVector.minus(Boundary.offset)
+
+
+    const computedStyle = getComputedStyle(Polygon.boundElement)
+
+    const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth)
+    const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth)
+
+
+    // Remove borders
+    relativeVector.minus(borderX, borderY)
+
+    return relativeVector
   }
 }

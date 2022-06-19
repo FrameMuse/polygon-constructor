@@ -35,14 +35,15 @@ class Picker {
       })
 
       startDragging(clonedPolygonObject, event)
-      // As soon as the polygon object position is changed, it will be added to scene
-      // setTimeout(() => {
       Polygon.settle(clonedPolygonObject)
-      // })
     })
 
     this.#components.add(component)
     this.#render()
+  }
+
+  static getComponentById(id: number): PickerComponent | undefined {
+    return [...this.#components.values()].find(component => component.polygonObject.block.id === id)
   }
 
   static #render() {

@@ -69,7 +69,7 @@ class PolygonObject extends BoundElement {
     selected: false,
   }
 
-  constructor(element: unknown, block: PolygonBlock) {
+  constructor(element: Node, block: PolygonBlock) {
     super(element)
 
     this.block = block
@@ -105,34 +105,40 @@ class PolygonObject extends BoundElement {
   }
 
   get position(): Vector2 {
-    return new Vector2(this.rect.x, this.rect.y)
+    const translateX = this.transform.functions.translateX
+    const translateY = this.transform.functions.translateY
+
+    if (translateX == null || translateY == null) {
+      return new Vector2(0, 0)
+    }
+
+    return new Vector2(translateX.value, translateY.value)
   }
   set position(vector: Vector2) {
-    let x = vector.x - Polygon.rect.left - Boundary.offset.x
-    let y = vector.y - Polygon.rect.top - Boundary.offset.y
+    // console.log(this, vector)
+    // this.transform.origin = [new CSSUnit(0, "px"), new CSSUnit(0, "px")]
+    // if (this.rotated) {
+    // console.log(Boundary.offset)
+    // vector.rotate(this.size.divide(2), 0)
+    // console.log(vector.clone().rotate(this.size.divide(2), 0))
+    // console.log(vector.clone().rotate(90))
 
+    // console.log(vector)
+    // vector.minus(Boundary.offset.clone().reverse())
+    // vector.minus(this.size.clone().reverse().divide(2))
+    // console.log(vector)
 
-    const computedStyle = getComputedStyle(Polygon.boundElement)
+    // }
 
-    const paddingX = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight)
-    const paddingY = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom)
-
-    const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth)
-    const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth)
-
-    x -= (paddingX / 2) + (borderX / 2)
-    y -= (paddingY / 2) + (borderY / 2)
-
-    this.transform.functions.translateX = new CSSUnit(x, "px")
-    this.transform.functions.translateY = new CSSUnit(y, "px")
+    this.transform.functions.translateX = new CSSUnit(vector.x, "px")
+    this.transform.functions.translateY = new CSSUnit(vector.y, "px")
   }
 
   rotated: boolean = false
   rotate(origin?: Vector2) {
     this.rotated = !this.rotated
 
-    Polygon.contains
-
+    // this.transform.origin = [new CSSUnit(0, "px"), new CSSUnit(0, "px")]
     if (origin) {
       this.transform.origin = [new CSSUnit(origin.x, "px"), new CSSUnit(origin.y, "px")]
     }
@@ -141,7 +147,7 @@ class PolygonObject extends BoundElement {
 
   clone(): PolygonObject {
     const clone = new PolygonObject(this.boundElement.cloneNode(true), this.block)
-    // clone.position = this.position
+    clone.position = this.position
     clone.state = { ...this.state }
     return clone
   }

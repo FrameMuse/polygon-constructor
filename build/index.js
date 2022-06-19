@@ -35,16 +35,22 @@ class Vector2 {
             this.x *= arg1;
             this.y *= arg2;
         }
+        return this;
     }
     divide(arg1, arg2) {
         if (arg1 instanceof Vector2) {
             this.x /= arg1.x;
             this.y /= arg1.y;
         }
+        if (typeof arg1 === "number" && typeof arg2 === "undefined") {
+            this.x /= arg1;
+            this.y /= arg1;
+        }
         if (typeof arg1 === "number" && typeof arg2 === "number") {
             this.x /= arg1;
             this.y /= arg2;
         }
+        return this;
     }
     equals(vector) {
         return this.x === vector.x && this.y === vector.y;
@@ -54,6 +60,56 @@ class Vector2 {
     }
     toString() {
         return `(${this.x}, ${this.y})`;
+    }
+    reverse() {
+        this.y = this.x;
+        this.x = this.y;
+        return this;
+    }
+    rotate(angle) {
+        const radians = angle * Math.PI / 180;
+        const cos = Math.cos(radians);
+        const sin = Math.sin(radians);
+        const x = this.x;
+        const y = this.y;
+        this.x = x * cos + y * sin;
+        this.y = x * sin - y * cos;
+    }
+}
+class PolygonScene {
+    static export() {
+        const output = [];
+        for (const polygonObject of Polygon.objects) {
+            const position = polygonObject.position.clone();
+            if (polygonObject.rotated) {
+                const origin = new Vector2(polygonObject.transform.origin[0].value, polygonObject.transform.origin[1].value);
+                position.x += origin.x + origin.y;
+                position.y += origin.y - origin.x;
+            }
+            output.push({
+                id: polygonObject.block.id,
+                x: position.x,
+                y: position.y,
+                angle: polygonObject.rotated ? 90 : 0,
+            });
+        }
+        return output;
+    }
+    static import(outputBlocks) {
+        Polygon.clear();
+        for (const outputBlock of outputBlocks) {
+            const component = Picker.getComponentById(outputBlock.id);
+            if (component == null)
+                continue;
+            const polygonObject = component.polygonObject.clone();
+            if (outputBlock.angle === 90) {
+                polygonObject.rotate();
+            }
+            polygonObject.position = new Vector2(outputBlock.x, outputBlock.y);
+            polygonObject.state.draggable = true;
+            polygonObject.on("pointerdown", startDragging);
+            Polygon.settle(polygonObject);
+        }
     }
 }
 // Math.clamp = function (x: number, min: number, max: number) {
@@ -74,6 +130,14 @@ class BoundElement {
             throw new Error("boundElement is not set");
         }
         return this.#boundElement.getBoundingClientRect();
+    }
+    get size() {
+        const rect = this.rect;
+        return new Vector2(rect.width, rect.height);
+    }
+    get offset() {
+        const rect = this.rect;
+        return new Vector2(rect.left, rect.top);
     }
     get boundElement() {
         if (this.#boundElement === null) {
@@ -206,6 +270,9 @@ class Boundary {
         return result;
     }
     static currentPointerEvent = new PointerEvent("");
+    static get absolutePointerPosition() {
+        return new Vector2(this.currentPointerEvent.x, this.currentPointerEvent.y);
+    }
     static updateOffset(pointerEvent) {
         const event = pointerEvent ?? this.currentPointerEvent;
         Boundary.offset = new Vector2(event.offsetX, event.offsetY);
@@ -226,24 +293,22 @@ function observeObject(target, property, callbacks) {
         },
     });
 }
-function observeProperty(target, property, callbacks) {
-    const value = target[property];
-    target[property] = new Proxy({ current: value }, {
-        // get(target) {
-        //   return target.current
-        // },
-        set(target, _key, value, receiver) {
-            console.log(target);
-            // Call immediately after setting the property
-            const result = Reflect.set(target, "current", value, receiver);
-            if (!result)
-                return false;
-            for (const callback of callbacks)
-                callback();
-            return true;
-        },
-    });
-}
+// function observeProperty<T extends object>(target: T, property: keyof T, callbacks: Function[]) {
+//   const value = ((target as never)[property] as unknown);
+//   ((target as never)[property] as unknown) = new Proxy({ current: value }, {
+//     get(target) {
+//       return target.current
+//     },
+//     set(target, _key, value, receiver) {
+//       console.log(target)
+//       // Call immediately after setting the property
+//       const result = Reflect.set(target, "current", value, receiver)
+//       if (!result) return false
+//       for (const callback of callbacks) callback()
+//       return true
+//     },
+//   })
+// }
 class CSSTransform {
     /**
      * The `transform` functions
@@ -265,7 +330,7 @@ class CSSTransform {
             this.connect(arg1);
         }
         observeObject(this, "functions", this.#callbacks);
-        observeProperty(this, "origin", this.#callbacks);
+        // observeProperty(this, "origin", this.#callbacks)
     }
     /**
      * Triggers the callback when the `transform` functions are changed
@@ -289,6 +354,7 @@ class CSSTransform {
         return result.join(" ");
     }
     stringifyOrigin() {
+        // console.log(this.origin)
         // console.log(this.origin)
         return this.origin[0].toString() + " " + this.origin[1].toString();
     }
@@ -365,13 +431,13 @@ class Picker {
                 component.usedAmount--;
             });
             startDragging(clonedPolygonObject, event);
-            // As soon as the polygon object position is changed, it will be added to scene
-            // setTimeout(() => {
             Polygon.settle(clonedPolygonObject);
-            // })
         });
         this.#components.add(component);
         this.#render();
+    }
+    static getComponentById(id) {
+        return [...this.#components.values()].find(component => component.polygonObject.block.id === id);
     }
     static #render() {
         if (this.#boundElement === null) {
@@ -521,8 +587,33 @@ class Polygon {
             this.#boundElement.append(polygonElement);
         }
     }
+    static get objects() {
+        return [...this.#objects];
+    }
     static get objectsCount() {
         return this.#objects.size;
+    }
+    static clear() {
+        this.#objects.clear();
+        this.#render();
+    }
+    /**
+     *
+     * @param absoluteVector Vector2 in absolute coordinates (not relative to Polygon, but to document)
+     * @returns Vector2 in relative coordinates to Polygon
+     */
+    static fromAbsoluteToRelative(absoluteVector) {
+        // console.log(absoluteVector)
+        const relativeVector = absoluteVector.clone();
+        // Removing top, left of `Polygon` and `Boundary.offset`
+        relativeVector.minus(Polygon.rect.left, Polygon.rect.top);
+        relativeVector.minus(Boundary.offset);
+        const computedStyle = getComputedStyle(Polygon.boundElement);
+        const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth);
+        const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
+        // Remove borders
+        relativeVector.minus(borderX, borderY);
+        return relativeVector;
     }
 }
 function createClassModifierToggleProxy(value, onElement) {
@@ -615,25 +706,33 @@ class PolygonObject extends BoundElement {
         return true;
     }
     get position() {
-        return new Vector2(this.rect.x, this.rect.y);
+        const translateX = this.transform.functions.translateX;
+        const translateY = this.transform.functions.translateY;
+        if (translateX == null || translateY == null) {
+            return new Vector2(0, 0);
+        }
+        return new Vector2(translateX.value, translateY.value);
     }
     set position(vector) {
-        let x = vector.x - Polygon.rect.left - Boundary.offset.x;
-        let y = vector.y - Polygon.rect.top - Boundary.offset.y;
-        const computedStyle = getComputedStyle(Polygon.boundElement);
-        const paddingX = parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
-        const paddingY = parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
-        const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth);
-        const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth);
-        x -= (paddingX / 2) + (borderX / 2);
-        y -= (paddingY / 2) + (borderY / 2);
-        this.transform.functions.translateX = new CSSUnit(x, "px");
-        this.transform.functions.translateY = new CSSUnit(y, "px");
+        // console.log(this, vector)
+        // this.transform.origin = [new CSSUnit(0, "px"), new CSSUnit(0, "px")]
+        // if (this.rotated) {
+        // console.log(Boundary.offset)
+        // vector.rotate(this.size.divide(2), 0)
+        // console.log(vector.clone().rotate(this.size.divide(2), 0))
+        // console.log(vector.clone().rotate(90))
+        // console.log(vector)
+        // vector.minus(Boundary.offset.clone().reverse())
+        // vector.minus(this.size.clone().reverse().divide(2))
+        // console.log(vector)
+        // }
+        this.transform.functions.translateX = new CSSUnit(vector.x, "px");
+        this.transform.functions.translateY = new CSSUnit(vector.y, "px");
     }
     rotated = false;
     rotate(origin) {
         this.rotated = !this.rotated;
-        Polygon.contains;
+        // this.transform.origin = [new CSSUnit(0, "px"), new CSSUnit(0, "px")]
         if (origin) {
             this.transform.origin = [new CSSUnit(origin.x, "px"), new CSSUnit(origin.y, "px")];
         }
@@ -641,7 +740,7 @@ class PolygonObject extends BoundElement {
     }
     clone() {
         const clone = new PolygonObject(this.boundElement.cloneNode(true), this.block);
-        // clone.position = this.position
+        clone.position = this.position;
         clone.state = { ...this.state };
         return clone;
     }
@@ -749,7 +848,7 @@ if (boundary instanceof HTMLElement) {
             return;
         if (Boundary.draggingObject) {
             // console.log(event)
-            Boundary.draggingObject.position = new Vector2(event.x, event.y);
+            Boundary.draggingObject.position = Polygon.fromAbsoluteToRelative(new Vector2(event.x, event.y));
         }
     });
     window.addEventListener("keydown", event => {
@@ -773,7 +872,7 @@ function startDragging(polygonObject, event) {
         new CSSUnit(event.offsetX, "px"),
         new CSSUnit(event.offsetY, "px")
     ];
-    polygonObject.position = new Vector2(event.x, event.y);
+    polygonObject.position = Polygon.fromAbsoluteToRelative(new Vector2(event.x, event.y));
     polygonObject.on("pointerup", stopDragging, { once: true });
 }
 function stopDragging(polygonObject, event) {
@@ -789,11 +888,48 @@ function stopDragging(polygonObject, event) {
 const DEFAULT_CLASS_NAME = "polygon-constructor__object";
 Picker.addComponent({
     id: 1,
-    amount: 6,
+    amount: 3,
     width: 5,
     height: 5,
     image: "https://picsum.photos/200/300",
     name: "Элемент стены, цвет белый 100×250",
+    angle: 0,
+});
+Picker.addComponent({
+    id: 2,
+    amount: 6,
+    width: 5,
+    height: 5,
+    image: "https://picsum.photos/200/300",
+    name: "Элемент стены, цвет белый 50×250",
+    angle: 0,
+});
+Picker.addComponent({
+    id: 3,
+    amount: 1,
+    width: 5,
+    height: 5,
+    image: "https://picsum.photos/200/300",
+    name: "Дверь раздвижная 100×250",
+    angle: 0,
+});
+Picker.addComponent({
+    id: 4,
+    amount: 1,
+    width: 5,
+    height: 5,
+    image: "https://picsum.photos/200/300",
+    name: "Занавес 100×250",
+    angle: 0,
+});
+Picker.addComponent({
+    id: 7,
+    amount: 1,
+    width: 5,
+    height: 5,
+    image: "https://picsum.photos/200/300",
+    name: "Полка настенная 1m",
+    angle: 0,
 });
 function isElementClassModifiedBy(element, modifier) {
     const baseClass = element.classList[0];

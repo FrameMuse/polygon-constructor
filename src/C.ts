@@ -13,25 +13,25 @@ function observeObject(target: object, property: string, callbacks: Function[]) 
     },
   })
 }
-function observeProperty<T extends object>(target: T, property: keyof T, callbacks: Function[]) {
-  const value = ((target as never)[property] as unknown);
+// function observeProperty<T extends object>(target: T, property: keyof T, callbacks: Function[]) {
+//   const value = ((target as never)[property] as unknown);
 
-  ((target as never)[property] as unknown) = new Proxy({ current: value }, {
-    // get(target) {
-    //   return target.current
-    // },
-    set(target, _key, value, receiver) {
-      console.log(target)
-      // Call immediately after setting the property
-      const result = Reflect.set(target, "current", value, receiver)
-      if (!result) return false
+//   ((target as never)[property] as unknown) = new Proxy({ current: value }, {
+//     get(target) {
+//       return target.current
+//     },
+//     set(target, _key, value, receiver) {
+//       console.log(target)
+//       // Call immediately after setting the property
+//       const result = Reflect.set(target, "current", value, receiver)
+//       if (!result) return false
 
-      for (const callback of callbacks) callback()
+//       for (const callback of callbacks) callback()
 
-      return true
-    },
-  })
-}
+//       return true
+//     },
+//   })
+// }
 
 class CSSTransform {
   /**
@@ -65,7 +65,7 @@ class CSSTransform {
     }
 
     observeObject(this, "functions", this.#callbacks)
-    observeProperty(this, "origin", this.#callbacks)
+    // observeProperty(this, "origin", this.#callbacks)
   }
 
   /**
@@ -94,6 +94,7 @@ class CSSTransform {
   }
 
   stringifyOrigin(): string {
+    // console.log(this.origin)
     // console.log(this.origin)
     return this.origin[0].toString() + " " + this.origin[1].toString()
   }

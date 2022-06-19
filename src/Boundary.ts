@@ -116,6 +116,12 @@ class Boundary {
   }
 
   static currentPointerEvent: PointerEvent = new PointerEvent("")
+  static get absolutePointerPosition(): Vector2 {
+    return new Vector2(
+      this.currentPointerEvent.x,
+      this.currentPointerEvent.y
+    )
+  }
 
   static updateOffset(pointerEvent?: PointerEvent): Vector2 {
     const event = pointerEvent ?? this.currentPointerEvent

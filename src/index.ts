@@ -48,7 +48,7 @@ if (boundary instanceof HTMLElement) {
 
     if (Boundary.draggingObject) {
       // console.log(event)
-      Boundary.draggingObject.position = new Vector2(event.x, event.y)
+      Boundary.draggingObject.position = Polygon.fromAbsoluteToRelative(new Vector2(event.x, event.y))
     }
   })
   window.addEventListener("keydown", event => {
@@ -75,7 +75,7 @@ function startDragging(polygonObject: PolygonObject, event: PointerEvent) {
     new CSSUnit(event.offsetX, "px"),
     new CSSUnit(event.offsetY, "px")
   ]
-  polygonObject.position = new Vector2(event.x, event.y)
+  polygonObject.position = Polygon.fromAbsoluteToRelative(new Vector2(event.x, event.y))
   polygonObject.on("pointerup", stopDragging, { once: true })
 }
 
@@ -95,9 +95,50 @@ const DEFAULT_CLASS_NAME = "polygon-constructor__object"
 
 Picker.addComponent({
   id: 1,
-  amount: 6,
+  amount: 3,
   width: 5, // cm
   height: 5, // cm
   image: "https://picsum.photos/200/300",
   name: "Элемент стены, цвет белый 100×250",
+  angle: 0,
+})
+
+Picker.addComponent({
+  id: 2,
+  amount: 6,
+  width: 5, // cm
+  height: 5, // cm
+  image: "https://picsum.photos/200/300",
+  name: "Элемент стены, цвет белый 50×250",
+  angle: 0,
+})
+
+Picker.addComponent({
+  id: 3,
+  amount: 1,
+  width: 5, // cm
+  height: 5, // cm
+  image: "https://picsum.photos/200/300",
+  name: "Дверь раздвижная 100×250",
+  angle: 0,
+})
+
+Picker.addComponent({
+  id: 4,
+  amount: 1,
+  width: 5, // cm
+  height: 5, // cm
+  image: "https://picsum.photos/200/300",
+  name: "Занавес 100×250",
+  angle: 0,
+})
+
+Picker.addComponent({
+  id: 7,
+  amount: 1,
+  width: 5, // cm
+  height: 5, // cm
+  image: "https://picsum.photos/200/300",
+  name: "Полка настенная 1m",
+  angle: 0,
 })
