@@ -1,43 +1,106 @@
-function observeObject(target: object, property: string, callbacks: Function[]) {
-  const value = ((target as never)[property] as object);
+class Point {
+  constructor(public x: number, public y: number) { }
 
-  ((target as never)[property] as unknown) = new Proxy(value, {
-    set(target, key, value, receiver) {
-      // Call immediately after setting the property
-      const result = Reflect.set(target, key, value, receiver)
-      if (!result) return false
+  add(point: Point): void
+  add(x: number, y: number): void
+  add(arg1: number | Point, arg2?: number): void {
+    if (arg1 instanceof Point) {
+      this.x += arg1.x
+      this.y += arg1.y
+    }
 
-      for (const callback of callbacks) callback()
+    if (typeof arg1 === "number" && typeof arg2 === "number") {
+      this.x += arg1
+      this.y += arg2
+    }
+  }
 
-      return true
-    },
-  })
+  subtract(point: Point): void
+  subtract(x: number, y: number): void
+  subtract(arg1: number | Point, arg2?: number): void {
+    if (arg1 instanceof Point) {
+      this.x -= arg1.x
+      this.y -= arg1.y
+    }
+
+    if (typeof arg1 === "number" && typeof arg2 === "number") {
+      this.x -= arg1
+      this.y -= arg2
+    }
+  }
+
+  power(point: Point): Point
+  power(x: number, y: number): Point
+  power(arg1: number | Point, arg2?: number): Point {
+    if (arg1 instanceof Point) {
+      this.x *= arg1.x
+      this.y *= arg1.y
+    }
+
+    if (typeof arg1 === "number" && typeof arg2 === "number") {
+      this.x *= arg1
+      this.y *= arg2
+    }
+
+    return this
+  }
+
+  divide(point: Point): Point
+  divide(xy: number): Point
+  divide(x: number, y: number): Point
+  divide(arg1: number | Point, arg2?: number): Point {
+    if (arg1 instanceof Point) {
+      this.x /= arg1.x
+      this.y /= arg1.y
+    }
+
+    if (typeof arg1 === "number" && typeof arg2 === "undefined") {
+      this.x /= arg1
+      this.y /= arg1
+    }
+
+    if (typeof arg1 === "number" && typeof arg2 === "number") {
+      this.x /= arg1
+      this.y /= arg2
+    }
+
+    return this
+  }
+
+  equals(point: Point): boolean {
+    return this.x === point.x && this.y === point.y
+  }
+
+  clone(): Point {
+    return new Point(this.x, this.y)
+  }
+
+  toString(): string {
+    return `(${this.x}, ${this.y})`
+  }
+
+  reverse() {
+    this.y = this.x
+    this.x = this.y
+
+    return this
+  }
+
+  normalize(normalizer: (x: number) => number): Point {
+    this.x = normalizer(this.x)
+    this.y = normalizer(this.y)
+
+    return this
+  }
 }
-// function observeProperty<T extends object>(target: T, property: keyof T, callbacks: Function[]) {
-//   const value = ((target as never)[property] as unknown);
-
-//   ((target as never)[property] as unknown) = new Proxy({ current: value }, {
-//     get(target) {
-//       return target.current
-//     },
-//     set(target, _key, value, receiver) {
-//       console.log(target)
-//       // Call immediately after setting the property
-//       const result = Reflect.set(target, "current", value, receiver)
-//       if (!result) return false
-
-//       for (const callback of callbacks) callback()
-
-//       return true
-//     },
-//   })
-// }
 
 class CSSTransform {
   /**
-   * The `transform` functions
+   * The `transform` functions.
+   * Have side effects.
+   * Use `observe` to listen for changes.
    */
-  functions: Partial<CSSTransformFunctions>
+  readonly functions: Partial<CSSTransformFunctions>
   origin: [CSSUnit, CSSUnit] = [new CSSUnit(0), new CSSUnit(0)]
 
   #callbacks: Function[] = []
@@ -65,7 +128,6 @@ class CSSTransform {
     }
 
     observeObject(this, "functions", this.#callbacks)
-    // observeProperty(this, "origin", this.#callbacks)
   }
 
   /**
@@ -77,7 +139,14 @@ class CSSTransform {
     this.#callbacks.push(callback)
   }
 
-  connect(element: HTMLElement) {
+  /**
+   * Connects the `transform` to the given element.
+   * This will update the `transform` on the `element` when a function is changed. 
+   * In addition, this will update the `origin` when the `origin` is changed.
+   * 
+   * @param element The element to connect to
+   */
+  connect(element: HTMLElement): void {
     this.observe(() => {
       element.style.transform = this.stringifyFunctions()
       element.style.transformOrigin = this.stringifyOrigin()
@@ -126,8 +195,6 @@ interface CSSTransformFunctions {
   rotateX: CSSUnit,
   rotateY: CSSUnit,
   rotateZ: CSSUnit,
-
-  matrix: CSSUnit,
 }
 
 
@@ -201,3 +268,40 @@ type CSSUnitType =
   | "dpcm"
   | "dppx"
   | "fr"
+
+
+
+class EventEmitter<Type extends string, Listener extends (...args: never[]) => void> {
+  #listeners: Map<Type, Set<Listener>> = new Map
+
+  on(event: Type, listener: Listener): void {
+    if (!this.#listeners.has(event)) {
+      this.#listeners.set(event, new Set())
+    }
+
+    this.#listeners.get(event)!.add(listener)
+  }
+
+  off(event: Type, listener: Listener): void {
+    if (!this.#listeners.has(event)) {
+      return
+    }
+
+    this.#listeners.get(event)!.delete(listener)
+  }
+
+  emit(event: Type, ...listenerParams: Parameters<Listener>): void {
+    if (!this.#listeners.has(event)) {
+      return
+    }
+
+    for (const listener of this.#listeners.get(event)!) {
+      listener(...listenerParams)
+    }
+  }
+}
+
+// interface IEventsController<Type extends string, Listener extends (...args: never[]) => void> {
+//   on(event: Type, listener: Listener): void
+//   off(event: Type, listener: Listener): void
+// }

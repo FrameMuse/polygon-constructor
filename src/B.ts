@@ -1,84 +1,37 @@
-
-
-// Math.clamp = function (x: number, min: number, max: number) {
-//   return Math.min(Math.max(x, min), max);
-// }
-
-abstract class BoundElement {
+abstract class PolygonComponent {
   #boundElement: HTMLElement
   #transform: CSSTransform
 
-  constructor(element: unknown) {
+  constructor(element: Node) {
     if (!(element instanceof HTMLElement)) {
       throw new Error("boundElement must be an instance of HTMLElement")
     }
 
     this.#boundElement = element
-
     this.#transform = new CSSTransform(element)
   }
 
   get rect(): DOMRect {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
-    }
-
     return this.#boundElement.getBoundingClientRect()
   }
 
-  get size(): Vector2 {
+  get size(): Point {
     const rect = this.rect
 
-    return new Vector2(rect.width, rect.height)
+    return new Point(rect.width, rect.height)
   }
 
-  get offset(): Vector2 {
+  get offset(): Point {
     const rect = this.rect
 
-    return new Vector2(rect.left, rect.top)
+    return new Point(rect.left, rect.top)
   }
 
   get boundElement(): HTMLElement {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
-    }
-
     return this.#boundElement
   }
 
   get transform(): CSSTransform {
     return this.#transform
-  }
-}
-
-abstract class BoundElementStatic {
-  static #boundElement: HTMLElement | null = null
-
-  static bindElement(element: unknown) {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error("boundElement must be an instance of HTMLElement")
-    }
-
-    if (this.#boundElement != null) {
-      throw new Error(this.name + " boundElement has already been set")
-    }
-
-    this.#boundElement = element
-  }
-
-  static get rect(): DOMRect {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
-    }
-
-    return this.#boundElement.getBoundingClientRect()
-  }
-
-  static get boundElement() {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
-    }
-
-    return this.#boundElement
   }
 }

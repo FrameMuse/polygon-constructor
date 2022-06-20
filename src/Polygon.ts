@@ -1,138 +1,270 @@
 class Polygon {
-  static #objects: Set<PolygonObject> = new Set
-  static #boundElement: HTMLElement | null = null
+  boundary: PolygonBoundary
+  area: PolygonArea
+  picker: PolygonPicker
+  entries: PolygonEntries
 
-  static bindElement(element: HTMLElement) {
-    if (this.#boundElement != null) {
-      throw new Error(this.name + " boundElement has already been set")
+  blocks: PolygonBlocks
+
+  constructor() {
+    const boundaryElement = document.body.querySelector("[pc-boundary]")
+    const areaElement = document.body.querySelector("[pc-area]")
+    const pickerElement = document.body.querySelector("[pc-picker]")
+    const entriesElement = document.body.querySelector("[pc-entries]")
+
+
+    if (!(boundaryElement instanceof HTMLElement)) {
+      throw new Error("Polygon constructor: no boundary element found")
     }
 
-    this.#boundElement = element
-  }
-
-  static get rect(): DOMRect {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
+    if (!(pickerElement instanceof HTMLElement)) {
+      throw new Error("Polygon constructor: no picker element found")
     }
 
-    return this.#boundElement.getBoundingClientRect()
-  }
-
-  static get boundElement() {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
+    if (!(areaElement instanceof HTMLElement)) {
+      throw new Error("Polygon constructor: no polygon element found")
     }
 
-    return this.#boundElement
+    if (!(entriesElement instanceof HTMLElement)) {
+      throw new Error("Polygon constructor: no entries element found")
+    }
+
+
+    this.boundary = new PolygonBoundary(boundaryElement)
+    this.area = new PolygonArea(areaElement)
+    this.picker = new PolygonPicker(pickerElement)
+    this.entries = new PolygonEntries(entriesElement)
+
+    this.blocks = new PolygonBlocks
+
+
+    this.#startLogic()
   }
 
-  static settle(polygonObject: PolygonObject) {
-    polygonObject.settled()
+  #startLogic() {
+    /**
+     * A relative point where a polygonObject is grabbed. 
+     */
+    let polygonObjectGrabOffset: Point = new Point(0, 0)
 
-    this.#objects.add(polygonObject)
+    this.boundary.onDragStart((polygonObject: PolygonObject, event: PointerEvent) => {
+      event.preventDefault()
 
-    this.#render()
-  }
+      polygonObjectGrabOffset = new Point(event.offsetX, event.offsetY)
 
-  static unsettle(polygonObject: PolygonObject) {
-    polygonObject.unsettled()
+      const position = new Point(event.x, event.y)
+      position.subtract(polygonObjectGrabOffset)
 
-    this.#objects.delete(polygonObject)
+      polygonObject.transform.origin = [
+        new CSSUnit(event.offsetX, "px"),
+        new CSSUnit(event.offsetY, "px")
+      ]
+      polygonObject.position = this.area.fromAbsoluteToRelative(position)
 
-    this.#render()
+      this.area.checkIfObjectAllowed(polygonObject)
+    })
+    this.boundary.onDrag((polygonObject: PolygonObject, event: PointerEvent) => {
+      event.preventDefault()
+
+      const position = new Point(event.x, event.y)
+      position.subtract(polygonObjectGrabOffset)
+
+      polygonObject.position = this.area.fromAbsoluteToRelative(position)
+
+      this.area.checkIfObjectAllowed(polygonObject)
+    })
+    this.boundary.onDragEnd((polygonObject: PolygonObject, event: PointerEvent) => {
+      event.preventDefault()
+
+      this.boundary.selectedObject = polygonObject
+
+      if (polygonObject.state.notAllowed) {
+        this.area.unsettle(polygonObject)
+      }
+    })
+
+    this.boundary.onKeyDown("r", event => {
+      if (event.altKey) return
+      if (event.ctrlKey) return
+
+      event.preventDefault()
+
+      if (this.boundary.draggingObject) {
+        this.boundary.draggingObject.rotate()
+      }
+    })
+
+
+    this.boundary.onSelectedObjectChange((polygonObject) => {
+      const entryElement = this.entries.setEntry("selected-block", polygonObject.block.name)
+
+      const rotateButton = document.createElement("button")
+      rotateButton.type = "button"
+      rotateButton.textContent = "Rotate"
+      rotateButton.addEventListener("pointerdown", () => {
+        const origin = new Point(polygonObject.rect.width / 2, polygonObject.rect.height / 2)
+        polygonObject.rotate(origin)
+      })
+
+      entryElement.append(rotateButton)
+      addElementClassModification(entryElement, "blue")
+    })
+
+
+
+    this.blocks.on("add", block => {
+      const component = this.picker.addComponent(block)
+
+      this.area.getObjectsById(block.id).forEach(polygonObject => {
+        component.usedAmount++
+        polygonObject.onUnsettled(() => {
+          component.usedAmount--
+        })
+      })
+
+      component.polygonObject.on("pointerdown", (_, event) => {
+        event.preventDefault()
+
+        if (component.usedAmount >= component.maxAmount) return
+        const clonedPolygonObject = component.polygonObject.clone()
+
+        this.boundary.makePolygonObjectDraggable(clonedPolygonObject)
+
+        component.usedAmount++
+        clonedPolygonObject.onUnsettled(() => {
+          component.usedAmount--
+        })
+
+        this.boundary.startDragging(clonedPolygonObject, event)
+        this.area.settle(clonedPolygonObject)
+      })
+    })
+
+    this.blocks.on("remove", block => {
+      // this.area.unsettleAllById(block.id)
+      this.picker.removeComponent(block)
+    })
+
+
+
+
+
+
+
+
+
+
   }
 
   /**
-   * 
-   * Checks whether polygonObject is within Polygon borders
+   * Resets the `polygon` to its initial state. Removes all polygonObjects from `area` and clears `blocks`.
    */
-  static contains(polygonObject: PolygonObject): boolean {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
+  reset(): void {
+    this.area.clear()
+    this.blocks.clear()
+  }
+
+  export(normalizer?: (x: number) => number): PolygonBlockOutput[] {
+    const output: PolygonBlockOutput[] = []
+    for (const polygonObject of this.area.objects) {
+      const position = polygonObject.position.clone()
+
+      if (polygonObject.rotated) {
+        const origin = new Point(
+          polygonObject.transform.origin[0].value,
+          polygonObject.transform.origin[1].value
+        )
+
+        position.x += origin.x + origin.y
+        position.y += origin.y - origin.x
+      }
+
+      if (normalizer) {
+        position.normalize(normalizer)
+      }
+
+      output.push({
+        id: polygonObject.block.id,
+        x: position.x,
+        y: position.y,
+        angle: polygonObject.rotated ? 90 : 0,
+      })
+    }
+    return output
+  }
+
+  import(...outputBlocks: PolygonBlockOutput[]): void {
+    if (this.area.objectsCount > 0) {
+      throw new Error("Polygon import: cannot import when there are already objects in the area.")
     }
 
-    const polygonRect = this.#boundElement.getBoundingClientRect()
-    const polygonObjectRect = polygonObject.rect
+    this.picker.clearUsedAmount()
 
+    for (const outputBlock of outputBlocks) {
+      const component = this.picker.getComponentById(outputBlock.id)
+      if (component == null) {
+        throw new Error(`Polygon import: block with id ${outputBlock.id} not found`)
+      }
 
-    if (polygonRect.left > polygonObjectRect.left) return false
-    if (polygonRect.top > polygonObjectRect.top) return false
+      const polygonObject = component.polygonObject.clone()
+      if (outputBlock.angle === 90) {
+        polygonObject.rotate()
+      }
 
-    if (polygonRect.right < polygonObjectRect.right) return false
-    if (polygonRect.bottom < polygonObjectRect.bottom) return false
+      polygonObject.position = new Point(outputBlock.x, outputBlock.y)
+      this.boundary.makePolygonObjectDraggable(polygonObject)
 
+      component.usedAmount++
+      polygonObject.onUnsettled(() => {
+        component.usedAmount--
+      })
 
-    return true
-  }
-
-  /**
-   * 
-   * Checks whether polygonObject intersects any polygonObjects inside Polygon
-   */
-  static intersectsOtherObjects(polygonObject: PolygonObject): boolean {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
-    }
-
-    for (const otherPolygonObject of this.#objects) {
-      if (polygonObject.intersects(otherPolygonObject)) return true
-    }
-
-    return false
-  }
-
-  static #render() {
-    if (this.#boundElement === null) {
-      throw new Error("boundElement is not set")
-    }
-
-    this.#boundElement.replaceChildren()
-
-    for (const polygonObject of this.#objects) {
-      const polygonElement = polygonObject.boundElement
-
-      this.#boundElement.append(polygonElement)
+      this.area.settle(polygonObject)
     }
   }
+}
 
-  static get objects(): PolygonObject[] {
-    return [...this.#objects]
+
+type PolygonBlocksEvent = "add" | "remove" | "clear"
+type PolygonBlocksEventListener = (block: PolygonBlock) => void
+
+class PolygonBlocks extends EventEmitter<PolygonBlocksEvent, PolygonBlocksEventListener> {
+  #blocks: Map<number, PolygonBlock> = new Map() // id => block
+
+  add(block: PolygonBlock): void {
+    this.#blocks.set(block.id, block)
+
+    this.emit("add", block)
   }
 
-  static get objectsCount(): number {
-    return this.#objects.size
+  remove(block: PolygonBlock): void {
+    this.#blocks.delete(block.id)
+
+    this.emit("remove", block)
   }
 
-  static clear() {
-    this.#objects.clear()
+  removeById(id: number): void {
+    const block = this.getById(id)
+    if (block == null) return
 
-    this.#render()
+    this.remove(block)
   }
 
+  getById(id: number): PolygonBlock | null {
+    return this.#blocks.get(id) || null
+  }
 
-  /**
-   * 
-   * @param absoluteVector Vector2 in absolute coordinates (not relative to Polygon, but to document)
-   * @returns Vector2 in relative coordinates to Polygon
-   */
-  static fromAbsoluteToRelative(absoluteVector: Vector2): Vector2 {
-    // console.log(absoluteVector)
-    const relativeVector = absoluteVector.clone()
+  clear(): void {
+    for (const block of this.#blocks.values()) {
+      this.remove(block)
+    }
+  }
 
-    // Removing top, left of `Polygon` and `Boundary.offset`
-    relativeVector.minus(Polygon.rect.left, Polygon.rect.top)
-    relativeVector.minus(Boundary.offset)
+  get size(): number {
+    return this.#blocks.size
+  }
 
-
-    const computedStyle = getComputedStyle(Polygon.boundElement)
-
-    const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth)
-    const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth)
-
-
-    // Remove borders
-    relativeVector.minus(borderX, borderY)
-
-    return relativeVector
+  get list(): PolygonBlock[] {
+    return [...this.#blocks.values()]
   }
 }
