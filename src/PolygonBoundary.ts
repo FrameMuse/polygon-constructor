@@ -2,12 +2,6 @@ class PolygonBoundary extends PolygonComponent {
   #draggingEvents: EventEmitter<"drag" | "dragstart" | "dragend", PolygonObjectCallback<PointerEvent>> = new EventEmitter
   #events: EventEmitter<"selectedObjectChange", (polygonObject: PolygonObject) => void> = new EventEmitter
 
-  constructor(element: Node) {
-    super(element)
-
-    // this.
-  }
-
   #draggingObject: PolygonObject | null = null
   /**
    * The current polygonObject which is being dragged

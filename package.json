@@ -4,13 +4,16 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc --build",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "compile": "npm run build && npm run uglify",
+    "uglify": "uglifyjs build/index.js --compress --mangle -o build/index.min.js"
   },
   "devDependencies": {
     "typescript": "^4.8.0-dev.20220523"
   },
   "dependencies": {
     "@types/reflect-metadata": "^0.1.0",
-    "reflect-metadata": "^0.1.13"
+    "reflect-metadata": "^0.1.13",
+    "uglify-js": "^3.16.1"
   }
 }

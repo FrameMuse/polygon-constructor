@@ -1,9 +1,9 @@
 class Point {
   constructor(public x: number, public y: number) { }
 
-  add(point: Point): void
-  add(x: number, y: number): void
-  add(arg1: number | Point, arg2?: number): void {
+  add(point: Point): Point
+  add(x: number, y: number): Point
+  add(arg1: number | Point, arg2?: number): Point {
     if (arg1 instanceof Point) {
       this.x += arg1.x
       this.y += arg1.y
@@ -13,11 +13,13 @@ class Point {
       this.x += arg1
       this.y += arg2
     }
+
+    return this
   }
 
-  subtract(point: Point): void
-  subtract(x: number, y: number): void
-  subtract(arg1: number | Point, arg2?: number): void {
+  subtract(point: Point): Point
+  subtract(x: number, y: number): Point
+  subtract(arg1: number | Point, arg2?: number): Point {
     if (arg1 instanceof Point) {
       this.x -= arg1.x
       this.y -= arg1.y
@@ -27,14 +29,22 @@ class Point {
       this.x -= arg1
       this.y -= arg2
     }
+
+    return this
   }
 
-  power(point: Point): Point
-  power(x: number, y: number): Point
-  power(arg1: number | Point, arg2?: number): Point {
+  multiply(point: Point): Point
+  multiply(xy: number): Point
+  multiply(x: number, y: number): Point
+  multiply(arg1: number | Point, arg2?: number): Point {
     if (arg1 instanceof Point) {
       this.x *= arg1.x
       this.y *= arg1.y
+    }
+
+    if (typeof arg1 === "number" && typeof arg2 === "undefined") {
+      this.x *= arg1
+      this.y *= arg1
     }
 
     if (typeof arg1 === "number" && typeof arg2 === "number") {
@@ -71,6 +81,14 @@ class Point {
     return this.x === point.x && this.y === point.y
   }
 
+  lessThan(point: Point): boolean {
+    return this.x < point.x || this.y < point.y
+  }
+
+  greaterThan(point: Point): boolean {
+    return this.x > point.x || this.y > point.y
+  }
+
   clone(): Point {
     return new Point(this.x, this.y)
   }
@@ -94,6 +112,8 @@ class Point {
   }
 }
 
+class Vector2 extends Point { }
+
 class CSSTransform {
   /**
    * The `transform` functions.
@@ -101,7 +121,7 @@ class CSSTransform {
    * Use `observe` to listen for changes.
    */
   readonly functions: Partial<CSSTransformFunctions>
-  origin: [CSSUnit, CSSUnit] = [new CSSUnit(0), new CSSUnit(0)]
+  origin: Point = new Point(0, 0)
 
   #callbacks: Function[] = []
 
@@ -162,10 +182,10 @@ class CSSTransform {
     return result.join(" ")
   }
 
-  stringifyOrigin(): string {
+  stringifyOrigin(unitType: CSSUnitType = "px"): string {
     // console.log(this.origin)
     // console.log(this.origin)
-    return this.origin[0].toString() + " " + this.origin[1].toString()
+    return `${this.origin.x}${unitType} ${this.origin.y}${unitType}`
   }
 
   static parse(transform: string): Record<string, CSSUnit> {
@@ -186,8 +206,7 @@ interface CSSTransformFunctions {
   translateX: CSSUnit,
   translateY: CSSUnit,
 
-  scaleX: CSSUnit,
-  scaleY: CSSUnit,
+  scale: CSSUnit,
 
   skewX: CSSUnit,
   skewY: CSSUnit,
@@ -270,7 +289,7 @@ type CSSUnitType =
   | "fr"
 
 
-
+// TODO: Refactor generics
 class EventEmitter<Type extends string, Listener extends (...args: never[]) => void> {
   #listeners: Map<Type, Set<Listener>> = new Map
 
@@ -304,4 +323,135 @@ class EventEmitter<Type extends string, Listener extends (...args: never[]) => v
 // interface IEventsController<Type extends string, Listener extends (...args: never[]) => void> {
 //   on(event: Type, listener: Listener): void
 //   off(event: Type, listener: Listener): void
+// }
+
+// code ViewPort 
+// class ViewPort {
+//   constructor(canvas) {
+//     this.canvas = canvas
+
+//     /**
+//       * Point used to calculate the change of every point's position on
+//       * canvas after view port is zoomed and panned
+//       */
+//     this.center = this.basicCenter
+
+//     this.zoom = 1
+
+//     this.shouldPan = false
+//     this.prevZoomingPoint = null
+//   }
+
+//   get canvasWidth() {
+//     return this.canvas.getBoundingClientRect().width
+//   }
+
+//   get canvasHeight() {
+//     return this.canvas.getBoundingClientRect().height
+//   }
+
+//   get canvasLeft() {
+//     return this.canvas.getBoundingClientRect().left
+//   }
+
+//   get canvasTop() {
+//     return this.canvas.getBoundingClientRect().top
+//   }
+
+//   get context() {
+//     return this.canvas.getContext('2d')
+//   }
+
+//   get basicCenter() {
+//     const { canvasWidth, canvasHeight } = this
+
+//     const point = {
+//       x: canvasWidth / 2,
+//       y: canvasHeight / 2
+//     }
+//     return point
+//   }
+
+//   get basicWidth() {
+//     const width = this.canvasWidth
+//     return width
+//   }
+
+//   get basicHeight() {
+//     const height = this.canvasHeight
+//     return height
+//   }
+
+//   get width() {
+//     const { basicWidth, zoom } = this
+//     const width = basicWidth * zoom
+//     return width
+//   }
+
+//   get height() {
+//     const { basicHeight, zoom } = this
+//     const height = basicHeight * zoom
+//     return height
+//   }
+
+//   get movement() {
+//     const { width, height, basicWidth, basicHeight } = this
+//     const { x: cx, y: cy } = this.center
+//     const { x: basicCX, y: basicCY } = this.basicCenter
+
+//     const deltaX = cx - basicCX - ((width - basicWidth) / 2)
+//     const deltaY = cy - basicCY - ((height - basicHeight) / 2)
+//     const res = {
+//       x: deltaX,
+//       y: deltaY
+//     }
+
+//     return res
+//   }
+
+//   get pan() {
+//     const { center, zoom, basicCenter } = this
+//     const res = {
+//       x: center.x - basicCenter.x,
+//       y: center.y - basicCenter.y
+//     }
+//     return res
+//   }
+
+//   zoomBy(center, deltaZoom) {
+//     const prevZoom = this.zoom
+
+//     this.zoom = this.zoom + deltaZoom
+
+//     this.center = this.zoomPoint(this.zoom / prevZoom)
+//   }
+
+//   zoomIn(point) {
+//     this.zoomBy(point, 0.1)
+//   }
+
+//   zoomOut(point) {
+//     this.zoom > 0.25 && this.zoomBy(point, -0.1)
+//   }
+
+//   zoomPoint(rate, point) {
+//     const { x, y } = point
+
+//     const deltaX = x * rate
+//     const deltaY = y * rate
+
+//     const newPoint = {
+//       x: deltaX,
+//       y:deltaY
+//     }
+//     return newPoint
+//   }
+
+//   panBy(deltaX, deltaY) {
+//     const { x: centerX, y: centerY } = this.center
+//     this.center = {
+//       x: centerX + deltaX,
+//       y: centerY + deltaY
+//     }
+//   }
 // }

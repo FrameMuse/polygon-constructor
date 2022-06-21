@@ -1,5 +1,7 @@
 type PolygonObjectEvent = "settle" | "unsettle" | "destroy"
 
+const DEFAULT_RATIO = 1 / 1
+
 class PolygonObject extends PolygonComponent {
   #listeners: Map<Function, EventListener> = new Map
   #onSettledCallbacks: Function[] = []
@@ -26,16 +28,34 @@ class PolygonObject extends PolygonComponent {
     selected: false,
   }
 
+  #ratio = DEFAULT_RATIO // px:cm ratio
+
+  set ratio(ratio: number) {
+    this.size = this.baseSize.multiply(ratio)
+    this.position = this.position.clone().divide(this.#ratio).multiply(ratio)
+
+    this.#ratio = ratio
+  }
+
+  get ratio(): number {
+    return this.#ratio
+  }
+
+  get baseSize(): Vector2 {
+    return new Vector2(this.block.width, this.block.height)
+  }
+
   constructor(element: Node, block: PolygonBlock) {
     super(element)
 
     this.block = block
-
-    decorateClassModifierToggle(this, "state", this.boundElement)
+    this.size = new Vector2(this.block.width, this.block.height)
 
     this.on("contextmenu", (_, event) => {
       event.preventDefault()
     })
+
+    decorateClassModifierToggle(this, "state", this.boundElement)
   }
 
   /**
@@ -57,25 +77,32 @@ class PolygonObject extends PolygonComponent {
     return true
   }
 
+  #position: Point = new Point(0, 0)
   get position(): Point {
-    const translateX = this.transform.functions.translateX
-    const translateY = this.transform.functions.translateY
-
-    return new Point(translateX?.value ?? 0, translateY?.value ?? 0)
+    return this.#position
   }
-  set position(vector: Point) {
-    this.transform.functions.translateX = new CSSUnit(vector.x, "px")
-    this.transform.functions.translateY = new CSSUnit(vector.y, "px")
+  set position(point: Point) {
+    this.#position = point
+
+    this.transform.functions.translateX = new CSSUnit(point.x, "px")
+    this.transform.functions.translateY = new CSSUnit(point.y, "px")
   }
 
+  toRational(point: Point): Point {
+    return point.multiply(this.ratio)
+  }
+
+  fromRational(point: Point): Point {
+    return point.divide(this.ratio)
+  }
 
   rotate(origin?: Point) {
     this.rotated = !this.rotated
 
-    // this.transform.origin = [new CSSUnit(0, "px"), new CSSUnit(0, "px")]
     if (origin) {
-      this.transform.origin = [new CSSUnit(origin.x, "px"), new CSSUnit(origin.y, "px")]
+      this.transform.origin = origin.clone()
     }
+
     this.transform.functions.rotateZ = new CSSUnit(this.rotated ? 90 : 0, "deg")
   }
 
@@ -83,6 +110,7 @@ class PolygonObject extends PolygonComponent {
     const clone = new PolygonObject(this.boundElement.cloneNode(true), this.block)
     clone.position = this.position
     clone.state = { ...this.state }
+    clone.ratio = this.ratio
     return clone
   }
 

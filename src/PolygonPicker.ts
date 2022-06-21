@@ -2,12 +2,15 @@ const PICKET_BLOCK_CLASS = "polygon-constructor-sidebar-block"
 
 class PolygonPicker extends PolygonComponent {
   #components: Map<number, PolygonPickerComponent> = new Map // id => component
-  #events: EventEmitter<"add" | "remove", (component: PolygonPickerComponent) => void> = new EventEmitter
 
   addComponent(block: PolygonBlock): PolygonPickerComponent {
-    const component = new PolygonPickerComponent(block)
 
-    this.#events.emit("add", component)
+    const component = new PolygonPickerComponent(block)
+    if (component.maxAmount === 0) {
+      this.removeComponent(block) // Remove if there is already block
+      this.#render()
+      return component
+    }
 
     this.#components.set(block.id, component)
     this.#render()
@@ -24,8 +27,6 @@ class PolygonPicker extends PolygonComponent {
   }
 
   removeComponentById(id: number) {
-    this.#events.emit("remove", this.getComponentById(id)!)
-
     this.#components.delete(id)
     this.#render()
   }
@@ -54,14 +55,6 @@ class PolygonPicker extends PolygonComponent {
 
   getOverusedComponents(): PolygonPickerComponent[] {
     return [...this.#components.values()].filter(component => component.usedAmount > component.maxAmount)
-  }
-
-  onComponentAdded(callback: (component: PolygonPickerComponent) => void) {
-    this.#events.on("add", callback)
-  }
-
-  onComponentRemoved(callback: (component: PolygonPickerComponent) => void) {
-    this.#events.on("remove", callback)
   }
 
   #render() {

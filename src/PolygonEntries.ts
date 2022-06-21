@@ -2,19 +2,18 @@ class PolygonEntries extends PolygonComponent {
   entries: Map<number | string, HTMLElement> = new Map // id => element
 
   setEntry(id: number | string, textContent: string, modification?: string): HTMLElement {
-    this.deleteEntry(id)
+    if (!this.entries.has(id)) {
+      const element = this.createEntryElement()
 
-    // if (!this.entries.has(id)) {
-    const element = this.createEntryElement()
+      this.entries.set(id, element)
+      this.boundElement.appendChild(element)
+    }
 
-    this.entries.set(id, element)
-    this.boundElement.appendChild(element)
-    // }
-
-    // const element = this.entries.get(id)!
+    const element = this.entries.get(id)!
     element.textContent = textContent
 
     if (modification) {
+      element.className = [...element.classList.values()][0]
       addElementClassModification(element, modification)
     }
 
@@ -22,7 +21,11 @@ class PolygonEntries extends PolygonComponent {
   }
 
   deleteEntry(id: number | string): void {
-    this.entries.get(id)?.remove()
+    const element = this.entries.get(id)
+    if (element == null) return
+
+    element.textContent = ""
+
     this.entries.delete(id)
   }
 

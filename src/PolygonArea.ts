@@ -15,8 +15,8 @@ class PolygonArea extends PolygonComponent {
     this.#objects.add(polygonObject)
     this.#render()
 
-    this.#events.emit("change", this.objects)
     polygonObject.settled()
+    this.#events.emit("change", this.objects)
   }
 
   /**
@@ -29,8 +29,8 @@ class PolygonArea extends PolygonComponent {
     this.#objects.delete(polygonObject)
     this.#render()
 
-    this.#events.emit("change", this.objects)
     polygonObject.unsettled()
+    this.#events.emit("change", this.objects)
   }
 
   unsettleAllById(id: number) {
@@ -68,7 +68,7 @@ class PolygonArea extends PolygonComponent {
   }
 
   getObjectsById(id: number): PolygonObject[] {
-    return [...this.#objects].filter(object => object.block.id === id)
+    return this.objects.filter(object => object.block.id === id)
   }
 
   clear() {
@@ -82,7 +82,54 @@ class PolygonArea extends PolygonComponent {
   }
 
 
+  /**
+   * 
+   * @param width Width of Polygon in pixels
+   * @param height Height of Polygon in pixels
+   * @param color Color of Polygon in CSS format
+   */
+  #setBackgroundGrid(width = 100, height = 100, color = "#333") {
+    this.boundElement.style.backgroundImage = `url("data:image/svg+xml,%3Csvg width='100%25' height='1000px' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='${width}px' height='${height}px' patternUnits='userSpaceOnUse'%3E%3Crect width='10000000000' height='10000000000' fill='none'/%3E%3Cpath d='M 10000000000 0 L 0 0 0 10000000000' fill='none' stroke='${encodeURIComponent(color)}' stroke-width='2'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23grid)' /%3E%3C/svg%3E")`
+  }
 
+  #ratio = 1 / 1
+  set ratio(ratio: number) {
+    for (const object of this.#objects) {
+      object.ratio = ratio
+    }
+
+    this.#setBackgroundGrid(100 * ratio, 100 * ratio)
+
+    this.#ratio = ratio
+    this.#render()
+  }
+
+  get ratio(): number {
+    return this.#ratio
+  }
+
+
+  setOpenWalls(...sides: ("left" | "right" | "top" | "bottom")[]) {
+    this.boundElement.style.border = "20px solid"
+
+    for (const side of sides) {
+      if (side === "left") {
+        this.boundElement.style.borderLeft = "none"
+      }
+
+      if (side === "right") {
+        this.boundElement.style.borderRight = "none"
+      }
+
+      if (side === "top") {
+        this.boundElement.style.borderTop = "none"
+      }
+
+      if (side === "bottom") {
+        this.boundElement.style.borderBottom = "none"
+      }
+    }
+  }
 
 
   /**
@@ -90,16 +137,14 @@ class PolygonArea extends PolygonComponent {
    * Checks whether polygonObject is within Polygon borders
    */
   contains(polygonObject: PolygonObject): boolean {
-    const polygonRect = this.rect
-    const polygonObjectRect = polygonObject.rect
+    const leftTop = this.leftTop.clone()
+    leftTop.add(this.borderLeftTop)
 
+    const rightBottom = this.rightBottom.clone()
+    rightBottom.subtract(this.borderRightBottom)
 
-    if (polygonRect.left > polygonObjectRect.left) return false
-    if (polygonRect.top > polygonObjectRect.top) return false
-
-    if (polygonRect.right < polygonObjectRect.right) return false
-    if (polygonRect.bottom < polygonObjectRect.bottom) return false
-
+    if (leftTop.greaterThan(polygonObject.leftTop)) return false
+    if (rightBottom.lessThan(polygonObject.rightBottom)) return false
 
     return true
   }
@@ -126,19 +171,13 @@ class PolygonArea extends PolygonComponent {
 
     // Removing top, left of `Polygon`
     relative.subtract(this.rect.left, this.rect.top)
-
-
-    const computedStyle = getComputedStyle(this.boundElement)
-
-    const borderX = parseFloat(computedStyle.borderLeftWidth) + parseFloat(computedStyle.borderRightWidth)
-    const borderY = parseFloat(computedStyle.borderTopWidth) + parseFloat(computedStyle.borderBottomWidth)
-
-
     // Remove borders
-    relative.subtract(borderX, borderY)
+    relative.subtract(this.borderLeftTop)
 
     return relative
   }
+
+
 
   /**
    * 
@@ -161,9 +200,9 @@ class PolygonArea extends PolygonComponent {
     return true
   }
 
-  // checkIfObjectsAllowed(polygonObjects: PolygonObject[]): boolean {
-  //   return polygonObjects.every(this.checkIfObjectAllowed)
-  // }
+  checkIfObjectsAllowed(polygonObjects: PolygonObject[]): boolean {
+    return polygonObjects.every(this.checkIfObjectAllowed.bind(this))
+  }
 
   // checkIfObjectsAllowedAndSetDropNotAllowed(polygonObjects: PolygonObject[]): boolean {
   //   const result = this.checkIfObjectsAllowed(polygonObjects)

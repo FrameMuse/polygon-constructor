@@ -1,3 +1,14 @@
+"use strict"
+
+const CLASS_SPLITTER = "--"
+
+const DEFAULT_CLASS_NAME = "polygon-constructor__object"
+
+
+
+
+
+
 class Polygon {
   boundary: PolygonBoundary
   area: PolygonArea
@@ -51,14 +62,13 @@ class Polygon {
       event.preventDefault()
 
       polygonObjectGrabOffset = new Point(event.offsetX, event.offsetY)
+      polygonObjectGrabOffset.divide(polygonObject.ratio).multiply(this.area.ratio)
 
       const position = new Point(event.x, event.y)
       position.subtract(polygonObjectGrabOffset)
 
-      polygonObject.transform.origin = [
-        new CSSUnit(event.offsetX, "px"),
-        new CSSUnit(event.offsetY, "px")
-      ]
+      polygonObject.ratio = this.area.ratio
+      polygonObject.transform.origin = polygonObjectGrabOffset.clone()
       polygonObject.position = this.area.fromAbsoluteToRelative(position)
 
       this.area.checkIfObjectAllowed(polygonObject)
@@ -141,7 +151,7 @@ class Polygon {
     })
 
     this.blocks.on("remove", block => {
-      // this.area.unsettleAllById(block.id)
+      this.area.unsettleAllById(block.id)
       this.picker.removeComponent(block)
     })
 
@@ -170,10 +180,7 @@ class Polygon {
       const position = polygonObject.position.clone()
 
       if (polygonObject.rotated) {
-        const origin = new Point(
-          polygonObject.transform.origin[0].value,
-          polygonObject.transform.origin[1].value
-        )
+        const origin = polygonObject.transform.origin.clone()
 
         position.x += origin.x + origin.y
         position.y += origin.y - origin.x
@@ -211,7 +218,10 @@ class Polygon {
         polygonObject.rotate()
       }
 
+      polygonObject.ratio = this.area.ratio
+
       polygonObject.position = new Point(outputBlock.x, outputBlock.y)
+      // polygonObject.position.divide(polygonObject.ratio)
       this.boundary.makePolygonObjectDraggable(polygonObject)
 
       component.usedAmount++
