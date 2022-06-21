@@ -28,7 +28,7 @@
     "strictNullChecks": true,
     "downlevelIteration": true,
     "noImplicitAny": true,
-    "outFile": "build/index.js"
+    "outFile": "build/polygon-constructor.js"
   },
   "include": ["src"],
   "exclude": ["node_modules", "build"]

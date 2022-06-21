@@ -48,7 +48,7 @@ body {
 
   width: 50em;
   height: 25em;
-  background: url("./grid.svg");
+  /* background: url("./grid.svg"); */
   border: 1px solid #ccc;
   border: 20px solid;
   /* border-bottom: unset; */

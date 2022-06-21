@@ -186,6 +186,9 @@ class Polygon {
         position.y += origin.y - origin.x
       }
 
+      // Reset `polygonObject` position ratio
+      position.divide(polygonObject.ratio)
+
       if (normalizer) {
         position.normalize(normalizer)
       }
@@ -218,9 +221,9 @@ class Polygon {
         polygonObject.rotate()
       }
 
-      polygonObject.ratio = this.area.ratio
 
       polygonObject.position = new Point(outputBlock.x, outputBlock.y)
+      polygonObject.ratio = this.area.ratio
       // polygonObject.position.divide(polygonObject.ratio)
       this.boundary.makePolygonObjectDraggable(polygonObject)
 

@@ -32,7 +32,8 @@ class PolygonObject extends PolygonComponent {
 
   set ratio(ratio: number) {
     this.size = this.baseSize.multiply(ratio)
-    this.position = this.position.clone().divide(this.#ratio).multiply(ratio)
+    this.transform.origin.divide(this.#ratio).multiply(ratio)
+    this.position = this.#position.clone().divide(this.#ratio).multiply(ratio)
 
     this.#ratio = ratio
   }
@@ -101,6 +102,7 @@ class PolygonObject extends PolygonComponent {
 
     if (origin) {
       this.transform.origin = origin.clone()
+      // this.transform.functions.rotateZ = this.transform.functions.rotateZ
     }
 
     this.transform.functions.rotateZ = new CSSUnit(this.rotated ? 90 : 0, "deg")

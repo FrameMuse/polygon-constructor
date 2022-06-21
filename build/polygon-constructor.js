@@ -521,6 +521,8 @@ class Polygon {
                 position.x += origin.x + origin.y;
                 position.y += origin.y - origin.x;
             }
+            // Reset `polygonObject` position ratio
+            position.divide(polygonObject.ratio);
             if (normalizer) {
                 position.normalize(normalizer);
             }
@@ -547,8 +549,8 @@ class Polygon {
             if (outputBlock.angle === 90) {
                 polygonObject.rotate();
             }
-            polygonObject.ratio = this.area.ratio;
             polygonObject.position = new Point(outputBlock.x, outputBlock.y);
+            polygonObject.ratio = this.area.ratio;
             // polygonObject.position.divide(polygonObject.ratio)
             this.boundary.makePolygonObjectDraggable(polygonObject);
             component.usedAmount++;
@@ -593,6 +595,10 @@ class PolygonBlocks extends EventEmitter {
 class PolygonArea extends PolygonComponent {
     #objects = new Set;
     #events = new EventEmitter;
+    constructor(element) {
+        super(element);
+        this.#setBackgroundGrid();
+    }
     /**
      * Will add it to Polygon, render it, then say to polygonObject that it is settled.
      *
@@ -908,7 +914,8 @@ class PolygonObject extends PolygonComponent {
     #ratio = DEFAULT_RATIO; // px:cm ratio
     set ratio(ratio) {
         this.size = this.baseSize.multiply(ratio);
-        this.position = this.position.clone().divide(this.#ratio).multiply(ratio);
+        this.transform.origin.divide(this.#ratio).multiply(ratio);
+        this.position = this.#position.clone().divide(this.#ratio).multiply(ratio);
         this.#ratio = ratio;
     }
     get ratio() {
@@ -964,6 +971,7 @@ class PolygonObject extends PolygonComponent {
         this.rotated = !this.rotated;
         if (origin) {
             this.transform.origin = origin.clone();
+            // this.transform.functions.rotateZ = this.transform.functions.rotateZ
         }
         this.transform.functions.rotateZ = new CSSUnit(this.rotated ? 90 : 0, "deg");
     }
@@ -1134,86 +1142,6 @@ function composePickerBlockAmountElement(amount) {
 Math.clamp = function (x, min, max) {
     return Math.min(Math.max(x, min), max);
 };
-const polygon = new Polygon;
-// setTimeout(() => {
-polygon.blocks.add({
-    id: 1,
-    amount: 3,
-    width: 160,
-    height: 20,
-    image: "https://picsum.photos/200/300",
-    name: "Элемент стены, цвет белый 100×250",
-    angle: 0,
-});
-polygon.blocks.add({
-    id: 2,
-    amount: 6,
-    width: 5,
-    height: 5,
-    image: "https://picsum.photos/200/300",
-    name: "Элемент стены, цвет белый 50×250",
-    angle: 0,
-});
-polygon.blocks.add({
-    id: 3,
-    amount: 1,
-    width: 5,
-    height: 5,
-    image: "https://picsum.photos/200/300",
-    name: "Дверь раздвижная 100×250",
-    angle: 0,
-});
-polygon.blocks.add({
-    id: 4,
-    amount: 1,
-    width: 5,
-    height: 5,
-    image: "https://picsum.photos/200/300",
-    name: "Занавес 100×250",
-    angle: 0,
-});
-polygon.blocks.add({
-    id: 7,
-    amount: 1,
-    width: 5,
-    height: 5,
-    image: "https://picsum.photos/200/300",
-    name: "Полка настенная 1m",
-    angle: 0,
-});
-// }, 1000)
-function check() {
-    if (polygon.picker.getUnderusedComponents().length > 0) {
-        polygon.entries.setEntry("error", "Не все компоненты выбраны", "red");
-        return false;
-    }
-    if (polygon.picker.getOverusedComponents().length > 0) {
-        polygon.entries.setEntry("error", "Выбрано слишком много компонентов", "red");
-        return false;
-    }
-    if (polygon.area.checkIfObjectsAllowed(polygon.area.objects) === false) {
-        polygon.entries.setEntry("error", "Некоторые блоки расположены неправильно", "red");
-        return false;
-    }
-    polygon.entries.deleteEntry("error");
-    return true;
-}
-// polygon.area.onChange(check)
-// polygon.blocks.on("add", check)
-// polygon.blocks.on("remove", check)
-polygon.area.ratio = 1 / 2;
-function onSubmit() {
-    if (!check())
-        return;
-    const exportData = polygon.export();
-    polygon.area.clear();
-    polygon.import(...exportData);
-    alert("nice");
-    console.log(exportData);
-}
-setTimeout(() => {
-    onSubmit();
-}, 500);
 function observeObject(target, property, callbacks) {
     const value = target[property];
     if (!isDictionary(value)) {

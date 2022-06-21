@@ -2,6 +2,12 @@ class PolygonArea extends PolygonComponent {
   #objects: Set<PolygonObject> = new Set
   #events: EventEmitter<"change", (objects: PolygonObject[]) => void> = new EventEmitter
 
+  constructor(element: Node) {
+    super(element)
+
+    this.#setBackgroundGrid()
+  }
+
   /**
    * Will add it to Polygon, render it, then say to polygonObject that it is settled.
    * 
