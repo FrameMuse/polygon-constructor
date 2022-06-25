@@ -7,7 +7,11 @@
 ```js
 const polygon = new Polygon()
 // ... Можете добавлять блоки
+polygon.blocks.add(...)
 // ... Экспортировать, импортировать
+polygon.import(...polygon.export())
+// ... И так далее
+polygon.area.setOpenWalls("left", "top")
 ```
 
 ## Рабочая область (PolygonArea)
