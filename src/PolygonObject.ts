@@ -7,7 +7,6 @@ class PolygonObject extends PolygonComponent {
   #onSettledCallbacks: Function[] = []
   #onUnsettledCallbacks: Function[] = []
 
-  rotated: boolean = false
   block: PolygonBlock
   state = {
     /**
@@ -97,15 +96,17 @@ class PolygonObject extends PolygonComponent {
     return point.divide(this.ratio)
   }
 
-  rotate(origin?: Point) {
-    this.rotated = !this.rotated
-
+  rotate(angle?: number, origin?: Point) {
     if (origin) {
       this.transform.origin = origin.clone()
-      // this.transform.functions.rotateZ = this.transform.functions.rotateZ
     }
 
-    this.transform.functions.rotateZ = new CSSUnit(this.rotated ? 90 : 0, "deg")
+    const rotateZ = this.transform.functions.rotateZ ?? new CSSUnit(0, "deg")
+    rotateZ.value += angle ?? 90
+    if (rotateZ.value >= 360) {
+      rotateZ.value -= 360
+    }
+    this.transform.functions.rotateZ = rotateZ
   }
 
   clone(): PolygonObject {

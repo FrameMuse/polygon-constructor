@@ -113,7 +113,7 @@ class Polygon {
       rotateButton.textContent = "Rotate"
       rotateButton.addEventListener("pointerdown", () => {
         const origin = new Point(polygonObject.rect.width / 2, polygonObject.rect.height / 2)
-        polygonObject.rotate(origin)
+        polygonObject.rotate(90, origin)
       })
 
       entryElement.append(rotateButton)
@@ -178,12 +178,17 @@ class Polygon {
     const output: PolygonBlockOutput[] = []
     for (const polygonObject of this.area.objects) {
       const position = polygonObject.position.clone()
-
-      if (polygonObject.rotated) {
+      const rotateZ = polygonObject.transform.functions.rotateZ ?? new CSSUnit(0, "deg")
+      if (rotateZ.value > 0) {
+        // polygonObject.ratio // scale
         const origin = polygonObject.transform.origin.clone()
+        const angleRAD = Math.PI / 180 * rotateZ.value
 
-        position.x += origin.x + origin.y
-        position.y += origin.y - origin.x
+        let m = 1
+        if (rotateZ.value % 360 === 180) m = 3
+
+        position.x = (position.x + m * origin.x) + (origin.x * Math.cos(angleRAD)) + (origin.y * Math.sin(angleRAD))
+        position.y = (position.y + m * origin.y) - (origin.x * Math.sin(angleRAD)) + (origin.y * Math.cos(angleRAD))
       }
 
       // Reset `polygonObject` position ratio
@@ -197,7 +202,7 @@ class Polygon {
         id: polygonObject.block.id,
         x: position.x,
         y: position.y,
-        angle: polygonObject.rotated ? 90 : 0,
+        angle: polygonObject.transform.functions.rotateZ?.value ?? 0,
       })
     }
     return output
@@ -217,12 +222,10 @@ class Polygon {
       }
 
       const polygonObject = component.polygonObject.clone()
-      if (outputBlock.angle === 90) {
-        polygonObject.rotate()
-      }
-
 
       polygonObject.position = new Point(outputBlock.x, outputBlock.y)
+      polygonObject.rotate(outputBlock.angle)
+
       polygonObject.ratio = this.area.ratio
       // polygonObject.position.divide(polygonObject.ratio)
       this.boundary.makePolygonObjectDraggable(polygonObject)
