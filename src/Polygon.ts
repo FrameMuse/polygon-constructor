@@ -112,7 +112,7 @@ class Polygon {
       rotateButton.type = "button"
       rotateButton.textContent = "Rotate"
       rotateButton.addEventListener("pointerdown", () => {
-        const origin = new Point(polygonObject.rect.width / 2, polygonObject.rect.height / 2)
+        const origin = new Point(polygonObject.block.width / 2, polygonObject.block.height / 2)
         polygonObject.rotate(90, origin)
       })
 
@@ -180,12 +180,11 @@ class Polygon {
       const position = polygonObject.position.clone()
       const rotateZ = polygonObject.transform.functions.rotateZ ?? new CSSUnit(0, "deg")
       if (rotateZ.value > 0) {
-        // polygonObject.ratio // scale
         const origin = polygonObject.transform.origin.clone()
         const angleRAD = Math.PI / 180 * rotateZ.value
 
         let m = 1
-        if (rotateZ.value % 360 === 180) m = 3
+        // if (rotateZ.value % 360 === 180) m = 3
 
         position.x = (position.x + m * origin.x) + (origin.x * Math.cos(angleRAD)) + (origin.y * Math.sin(angleRAD))
         position.y = (position.y + m * origin.y) - (origin.x * Math.sin(angleRAD)) + (origin.y * Math.cos(angleRAD))
