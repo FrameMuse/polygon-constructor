@@ -184,7 +184,7 @@ class Polygon {
         const angleRAD = Math.PI / 180 * rotateZ.value
 
         let m = 1
-        // if (rotateZ.value % 360 === 180) m = 3
+        if (rotateZ.value % 360 === 180) m = 3
 
         position.x = (position.x + m * origin.x) + (origin.x * Math.cos(angleRAD)) + (origin.y * Math.sin(angleRAD))
         position.y = (position.y + m * origin.y) - (origin.x * Math.sin(angleRAD)) + (origin.y * Math.cos(angleRAD))

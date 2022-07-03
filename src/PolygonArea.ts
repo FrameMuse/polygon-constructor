@@ -158,10 +158,15 @@ class PolygonArea extends PolygonComponent {
   /**
    * 
    * Checks whether polygonObject intersects any polygonObjects inside Polygon
+   * 
+   * @returns intersected `polygonObject`
    */
-  intersectsAny(polygonObject: PolygonObject): boolean {
-    for (const otherPolygonObject of this.#objects) {
-      if (polygonObject.intersects(otherPolygonObject)) return true
+  intersectsAny(polygonObjectOther: PolygonObject): boolean {
+    for (const polygonObject of this.#objects) {
+      if (polygonObject.block.atop) continue
+      if (polygonObjectOther.block.atop) continue
+
+      if (polygonObject.intersects(polygonObjectOther)) return true
     }
 
     return false
@@ -197,9 +202,11 @@ class PolygonArea extends PolygonComponent {
       return false
     }
 
-    if (this.intersectsAny(polygonObject)) {
-      polygonObject.state.notAllowed = true
-      return false
+    if (!polygonObject.block.atop) {
+      if (this.intersectsAny(polygonObject)) {
+        polygonObject.state.notAllowed = true
+        return false
+      }
     }
 
     polygonObject.state.notAllowed = false
@@ -209,16 +216,4 @@ class PolygonArea extends PolygonComponent {
   checkIfObjectsAllowed(polygonObjects: PolygonObject[]): boolean {
     return polygonObjects.every(this.checkIfObjectAllowed.bind(this))
   }
-
-  // checkIfObjectsAllowedAndSetDropNotAllowed(polygonObjects: PolygonObject[]): boolean {
-  //   const result = this.checkIfObjectsAllowed(polygonObjects)
-
-  //   if (!result) {
-  //     this.dropNotAllowed = true
-  //   } else {
-  //     this.dropNotAllowed = false
-  //   }
-
-  //   return result
-  // }
 }

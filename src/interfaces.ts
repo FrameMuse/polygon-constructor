@@ -8,7 +8,10 @@ interface PolygonBlock {
   width: number // cm
   height: number // cm
 
-  angle: number // deg
+  angle?: number // deg
+
+  atop?: boolean
+  type?: string
 }
 
 interface Area {

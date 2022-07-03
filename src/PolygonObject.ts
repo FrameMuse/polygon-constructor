@@ -51,9 +51,18 @@ class PolygonObject extends PolygonComponent {
     this.block = block
     this.size = new Vector2(this.block.width, this.block.height)
 
+
     this.on("contextmenu", (_, event) => {
       event.preventDefault()
     })
+
+    if (block.atop) {
+      this.boundElement.style.zIndex = "2"
+    }
+
+    if (block.type) {
+      addElementClassModification(this.boundElement, block.type)
+    }
 
     decorateClassModifierToggle(this, "state", this.boundElement)
   }
@@ -62,17 +71,17 @@ class PolygonObject extends PolygonComponent {
    * 
    * Checks whether polygonObject intersects other polygonObject
    */
-  intersects(otherPolygonObject: PolygonObject): boolean {
-    if (this === otherPolygonObject) return false
+  intersects(polygonObjectOther: PolygonObject): boolean {
+    if (this === polygonObjectOther) return false
 
     const polygonObjectRect = this.rect
-    const otherPolygonObjectRect = otherPolygonObject.rect
+    const polygonObjectOtherRect = polygonObjectOther.rect
 
-    if (polygonObjectRect.top > otherPolygonObjectRect.bottom) return false
-    if (polygonObjectRect.bottom < otherPolygonObjectRect.top) return false
+    if (polygonObjectRect.top > polygonObjectOtherRect.bottom) return false
+    if (polygonObjectRect.bottom < polygonObjectOtherRect.top) return false
 
-    if (polygonObjectRect.left > otherPolygonObjectRect.right) return false
-    if (polygonObjectRect.right < otherPolygonObjectRect.left) return false
+    if (polygonObjectRect.left > polygonObjectOtherRect.right) return false
+    if (polygonObjectRect.right < polygonObjectOtherRect.left) return false
 
     return true
   }
